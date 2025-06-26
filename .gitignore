@@ -1,0 +1,23 @@
+# Dependencies
+/node_modules
+
+# Runtime Data
+/bookings.json
+*.log
+
+# Local Configuration
+# This file is machine-specific and should not be committed.
+# A `config.example.json` should be used as a template.
+/config.json
+
+# Build output
+/dist
+/out
+
+# OS-specific
+.DS_Store
+Thumbs.db
+
+# IDE / Editor
+.vscode
+.idea
