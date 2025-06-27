@@ -7,8 +7,9 @@ let config;
 let currentBooking = null;
 let stateCheckInterval = null;
 let countdownInterval = null;
-let isCurrentlyLocked = null; // Use null to ensure the first call always runs
-let localBookings = []; // Local cache of the bookings.json content
+let localCheckInterval = null;
+let isCurrentlyLocked = null;
+let localBookings = [];
 
 const POLLING_INTERVAL_MS = 60 * 1000; // 60 seconds
 const LOCAL_CHECK_INTERVAL_MS = 1000;  // 1 second for high-precision start times
@@ -19,10 +20,14 @@ function setLockedState(isLocked, booking = null) {
     }
     isCurrentlyLocked = isLocked;
 
-    // Always clear the existing interval to avoid multiple timers running
+    // Always clear existing intervals to avoid multiple timers
     if (stateCheckInterval) {
         clearInterval(stateCheckInterval);
         stateCheckInterval = null;
+    }
+    if (localCheckInterval) {
+        clearInterval(localCheckInterval);
+        localCheckInterval = null;
     }
 
     if (isLocked) {
@@ -31,22 +36,27 @@ function setLockedState(isLocked, booking = null) {
         currentBooking = null;
         if(countdownInterval) clearInterval(countdownInterval);
         
-        // Start polling for new bookings only when locked.
+        // Start low-frequency API polling
         console.log(`Locking screen. Starting API polling every ${POLLING_INTERVAL_MS / 1000}s.`);
-        // API Polling interval
         stateCheckInterval = setInterval(() => {
             window.electronAPI.refreshBookings().then(newBookings => {
                 localBookings = newBookings; // Update local cache
             });
         }, POLLING_INTERVAL_MS);
 
+        // Start high-frequency local check
+        console.log(`Starting high-frequency local check every ${LOCAL_CHECK_INTERVAL_MS / 1000}s.`);
+        localCheckInterval = setInterval(() => {
+            checkForActiveBooking(localBookings);
+        }, LOCAL_CHECK_INTERVAL_MS);
+
     } else {
         lockScreen.style.display = 'none';
         unlockScreen.style.display = 'block';
         currentBooking = booking;
         
-        // Stop polling while unlocked (already handled by clearing at the top)
-        console.log("Unlocking screen. Polling stopped.");
+        // Polling is stopped because we cleared the intervals at the top.
+        console.log("Unlocking screen. All polling stopped.");
         
         updateCountdown();
         if(countdownInterval) clearInterval(countdownInterval);
@@ -85,11 +95,7 @@ function checkForActiveBooking(bookings) {
         console.log("Active booking found:", activeBooking);
         setLockedState(false, activeBooking);
     } else {
-        // Only set to locked if it's not already locked, to avoid loops
-        if (!isCurrentlyLocked) {
-            console.log("No active booking found.");
-            setLockedState(true);
-        }
+        setLockedState(true);
     }
 }
 
@@ -138,15 +144,10 @@ async function initialize() {
     const initialBookings = await window.electronAPI.refreshBookings();
     localBookings = initialBookings; // Populate local cache
     
-    // 3. Check the initial bookings and set the correct state.
+    // 3. Check the initial bookings and set the correct state, which will also start the correct timers.
     checkForActiveBooking(initialBookings);
 
-    // 4. Start the high-frequency local check, which will handle unlocking.
-    setInterval(() => {
-        if (isCurrentlyLocked) {
-            checkForActiveBooking(localBookings);
-        }
-    }, LOCAL_CHECK_INTERVAL_MS);
+    // High-frequency check is now handled by setLockedState, so no timer is needed here.
 }
 
 // Start the application.
