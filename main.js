@@ -121,4 +121,51 @@ ipcMain.handle('get-config', async (event) => {
 // IPC handler for renderer to request a manual refresh
 ipcMain.handle('refresh-bookings', async (event) => {
     return await fetchAndStoreBookings();
+});
+
+ipcMain.handle('send-heartbeat', async (event, bayId) => {
+    if (!config) {
+        console.error('Heartbeat failed: Kiosk config not loaded.');
+        throw new Error('Kiosk config not loaded');
+    }
+    const url = `${config.apiBaseUrl}/bays/${bayId}/heartbeat`;
+    console.log(`Sending heartbeat to: ${url}`);
+    
+    try {
+        const response = await axios.post(url, {}, {
+            // Include the IP address in a header if possible, though req.ip on the server is better.
+            // The server-side req.ip is generally more reliable.
+        });
+        console.log('Heartbeat response:', response.data);
+        return response.data;
+    } catch (error) {
+        console.error('Error sending heartbeat:', error.message);
+        if (error.response) {
+            console.error('Heartbeat error details:', error.response.data);
+            throw new Error(error.response.data.message || error.message);
+        }
+        throw error;
+    }
+});
+
+ipcMain.handle('log-access', async (event, logData) => {
+    if (!config) {
+        console.error('Access log failed: Kiosk config not loaded.');
+        throw new Error('Kiosk config not loaded');
+    }
+    const url = `${config.apiBaseUrl}/logs/access`;
+    console.log(`Logging access event to: ${url}`);
+    
+    try {
+        const response = await axios.post(url, logData);
+        console.log('Access log response:', response.data);
+        return response.data;
+    } catch (error) {
+        console.error('Error sending access log:', error.message);
+        if (error.response) {
+            console.error('Access log error details:', error.response.data);
+            throw new Error(error.response.data.message || error.message);
+        }
+        throw error;
+    }
 }); 
