@@ -1,21 +1,23 @@
 const { app, BrowserWindow, ipcMain } = require('electron');
 const path = require('path');
 const fs = require('fs');
+const { io } = require('socket.io-client');
 const axios = require('axios');
 
 const CONFIG_PATH = path.join(__dirname, 'config.json');
-const BOOKINGS_PATH = path.join(__dirname, 'bookings.json');
 
 let config;
 let mainWindow;
+let socket;
+let bookings = []; // In-memory store for bookings
+let pollingInterval;
 
 function loadConfig() {
-  if (fs.existsSync(CONFIG_PATH)) {
+  try {
     const configData = fs.readFileSync(CONFIG_PATH);
     config = JSON.parse(configData);
-  } else {
-    // Handle error: config.json not found
-    console.error('FATAL: config.json not found.');
+  } catch (error) {
+    console.error('FATAL: config.json not found or is invalid.', error);
     app.quit();
   }
 }
@@ -37,70 +39,106 @@ function createWindow () {
   });
 
   mainWindow.loadFile('index.html');
-  mainWindow.on('closed', () => mainWindow = null);
+  mainWindow.on('closed', () => {
+    mainWindow = null;
+    if (socket) socket.disconnect();
+    clearInterval(pollingInterval);
+  });
   
-  // Open DevTools for development
-  mainWindow.webContents.openDevTools();
-}
-
-async function fetchAndStoreBookings() {
-  if (!config) return;
-
-  const { locationId, apiBaseUrl, timezone } = config;
-  // Determine "today" based on the location's timezone, not the system's.
-  // 'en-CA' gives the required YYYY-MM-DD format.
-  const today = new Date().toLocaleDateString('en-CA', { timeZone: timezone });
-
-  try {
-    console.log(`Fetching bookings for location ${locationId} on ${today} (Timezone: ${timezone})`);
-    const response = await axios.get(`${apiBaseUrl}/bookings`, {
-      params: { locationId, date: today }
-    });
-    
-    console.log('Bookings:', response.data);
-    // Filter out past bookings before writing to the file
-    // Note: This needs more robust date parsing based on API response
-    const bookings = response.data;
-
-    // --- Start Filtering Logic ---
-    const now = new Date();
-
-    // This helper function creates a Date object for today (in the system's timezone)
-    // with the time from the booking string. It mirrors the logic in renderer.js for consistency.
-    const parseTime = (timeString) => {
-      const [time, modifier] = timeString.split(' ');
-      let [hours, minutes] = time.split(':').map(Number);
-      if (modifier.toUpperCase() === 'PM' && hours < 12) hours += 12;
-      if (modifier.toUpperCase() === 'AM' && hours === 12) hours = 0;
-      
-      const date = new Date(); // Uses today's date from system time
-      date.setHours(hours, minutes, 0, 0);
-      return date;
-    };
-
-    const upcomingBookings = bookings.filter(booking => {
-      const endTime = parseTime(booking.endTime);
-      return endTime > now;
-    });
-    // --- End Filtering Logic ---
-
-    fs.writeFileSync(BOOKINGS_PATH, JSON.stringify(upcomingBookings, null, 2));
-    console.log(`Successfully fetched ${bookings.length} bookings, stored ${upcomingBookings.length} upcoming bookings.`);
-    return upcomingBookings;
-  } catch (error) {
-    console.error('Error fetching bookings:', error.message);
-    // On error, try to read from existing local file
-    if (fs.existsSync(BOOKINGS_PATH)) {
-      const localData = fs.readFileSync(BOOKINGS_PATH);
-      return JSON.parse(localData);
-    }
-    return [];
+  if (isDev) {
+    mainWindow.webContents.openDevTools();
   }
 }
+
+function connectToWebSocket() {
+  if (!config) return;
+
+  const { locationId, bayId, apiBaseUrl } = config;
+  console.log(`Connecting to WebSocket server at ${apiBaseUrl}`);
+
+  socket = io(apiBaseUrl, {
+    reconnection: true,
+    reconnectionAttempts: Infinity,
+    reconnectionDelay: 1000,
+    reconnectionDelayMax: 5000,
+    transports: ['websocket'], // Force websocket connection, bypassing HTTP polling
+  });
+
+  socket.on('connect', () => {
+    console.log(`WebSocket connected: ${socket.id}`);
+    console.log(`Registering kiosk for location: ${locationId}, bay: ${bayId}`);
+    socket.emit('register_kiosk', { locationId, bayId });
+
+    // Request initial data dump upon connection
+    socket.emit('request_initial_bookings', { locationId, bayId });
+  });
+
+  socket.on('disconnect', (reason) => {
+    console.log(`WebSocket disconnected: ${reason}`);
+  });
+
+  socket.on('connect_error', (error) => {
+    console.error(`WebSocket connection error: ${error.message}`);
+  });
+
+  // Listener for full data refresh
+  socket.on('bookings_updated', (payload) => {
+    console.log('Received full bookings refresh:', payload);
+    if (payload.bayId === config.bayId) {
+      bookings = payload.bookings;
+      // Notify renderer of the update
+      if (mainWindow) {
+        mainWindow.webContents.send('bookings-updated', bookings);
+      }
+    }
+  });
+  
+  // Listener for single booking changes
+  socket.on('booking_update', (payload) => {
+    console.log('Received single booking update:', payload);
+    if (payload.bayId === config.bayId) {
+      const index = bookings.findIndex(b => b.id === payload.booking.id);
+
+      if (payload.action === 'add') {
+        if (index === -1) {
+          bookings.push(payload.booking);
+        } else {
+          bookings[index] = payload.booking; // Update existing
+        }
+      } else if (payload.action === 'remove') {
+        if (index !== -1) {
+          bookings.splice(index, 1);
+        }
+      }
+      
+      // Notify renderer of the update
+      if (mainWindow) {
+        mainWindow.webContents.send('bookings-updated', bookings);
+      }
+    }
+  });
+}
+
+// Set up a fallback polling mechanism
+function setupPolling() {
+    const SIX_HOURS = 6 * 60 * 60 * 1000;
+    pollingInterval = setInterval(() => {
+        if (socket && socket.connected) {
+            console.log('Polling for full booking refresh...');
+            socket.emit('request_initial_bookings', { 
+                locationId: config.locationId, 
+                bayId: config.bayId 
+            });
+        }
+    }, SIX_HOURS);
+}
+
 
 app.on('ready', () => {
   loadConfig();
   createWindow();
+  connectToWebSocket();
+  setupPolling();
 });
 
 app.on('window-all-closed', function () {
@@ -114,13 +152,13 @@ app.on('activate', function () {
 });
 
 // IPC handler for renderer to request config
-ipcMain.handle('get-config', async (event) => {
+ipcMain.handle('get-config', () => {
     return config;
 });
 
-// IPC handler for renderer to request a manual refresh
-ipcMain.handle('refresh-bookings', async (event) => {
-    return await fetchAndStoreBookings();
+// IPC handler for renderer to get the initial list of bookings
+ipcMain.handle('get-initial-bookings', () => {
+    return bookings;
 });
 
 ipcMain.handle('send-heartbeat', async (event, bayId) => {
@@ -132,10 +170,7 @@ ipcMain.handle('send-heartbeat', async (event, bayId) => {
     console.log(`Sending heartbeat to: ${url}`);
     
     try {
-        const response = await axios.post(url, {}, {
-            // Include the IP address in a header if possible, though req.ip on the server is better.
-            // The server-side req.ip is generally more reliable.
-        });
+        const response = await axios.post(url, {});
         console.log('Heartbeat response:', response.data);
         return response.data;
     } catch (error) {

@@ -1,19 +1,16 @@
 const lockScreen = document.getElementById('lock-screen');
 const unlockScreen = document.getElementById('unlock-screen');
 const countdown = document.getElementById('countdown');
-const refreshButton = document.getElementById('refresh-button');
 
 let config;
 let currentBooking = null;
-let stateCheckInterval = null;
 let countdownInterval = null;
 let localCheckInterval = null;
 let isCurrentlyLocked = null;
-let localBookings = [];
+let localBookings = []; // This is now the definitive in-memory store for the renderer
 let heartbeatInterval = null;
 
-const POLLING_INTERVAL_MS = 60 * 1000; // 60 seconds
-const LOCAL_CHECK_INTERVAL_MS = 1000;  // 1 second for high-precision start times
+const LOCAL_CHECK_INTERVAL_MS = 5000;  // Check every 30 seconds
 
 function logAccessEvent(action, success, booking = null) {
     if (!config) {
@@ -43,10 +40,6 @@ function setLockedState(isLocked, booking = null) {
     isCurrentlyLocked = isLocked;
 
     // Always clear existing intervals to avoid multiple timers
-    if (stateCheckInterval) {
-        clearInterval(stateCheckInterval);
-        stateCheckInterval = null;
-    }
     if (localCheckInterval) {
         clearInterval(localCheckInterval);
         localCheckInterval = null;
@@ -64,23 +57,13 @@ function setLockedState(isLocked, booking = null) {
         lockScreen.style.display = 'flex';
         unlockScreen.style.display = 'none';
         
-        // Log previous session ending, if there was one
         if (currentBooking) {
             logAccessEvent('session_ended', true, currentBooking);
         }
-
         currentBooking = null;
         
-        // Start low-frequency API polling
-        console.log(`Locking screen. Starting API polling every ${POLLING_INTERVAL_MS / 1000}s.`);
-        stateCheckInterval = setInterval(() => {
-            window.electronAPI.refreshBookings().then(newBookings => {
-                localBookings = newBookings; // Update local cache
-            });
-        }, POLLING_INTERVAL_MS);
-
-        // Start high-frequency local check
-        console.log(`Starting high-frequency local check every ${LOCAL_CHECK_INTERVAL_MS / 1000}s.`);
+        // Polling is removed. We now rely on the high-frequency local check and pushed updates.
+        console.log(`Locking screen. Starting high-frequency local check every ${LOCAL_CHECK_INTERVAL_MS / 1000}s.`);
         localCheckInterval = setInterval(() => {
             checkForActiveBooking(localBookings);
         }, LOCAL_CHECK_INTERVAL_MS);
@@ -90,8 +73,7 @@ function setLockedState(isLocked, booking = null) {
         unlockScreen.style.display = 'block';
         currentBooking = booking;
         
-        // Polling is stopped because we cleared the intervals at the top.
-        console.log("Unlocking screen. All polling stopped.");
+        console.log("Unlocking screen. Local check stopped.");
         
         logAccessEvent('session_started', true, booking);
 
@@ -102,8 +84,6 @@ function setLockedState(isLocked, booking = null) {
 }
 
 function parseTime(timeString) {
-    // This is a naive parser based on the "h:mm A" format.
-    // It will need to be more robust.
     const [time, modifier] = timeString.split(' ');
     let [hours, minutes] = time.split(':').map(Number);
     if (modifier === 'PM' && hours < 12) hours += 12;
@@ -117,7 +97,6 @@ function parseTime(timeString) {
 function checkForActiveBooking(bookings) {
     if (!config || !bookings) return;
 
-    // This function is now only for checking, not for setting timers.
     const now = new Date();
     const activeBooking = bookings.find(b => {
         if (b.bayId !== config.bayId) return false;
@@ -146,7 +125,6 @@ function updateCountdown() {
     if (diff <= 0) {
         countdown.textContent = 'Time expired';
         clearInterval(countdownInterval);
-        // Set the state to locked. This will automatically start the polling interval.
         setLockedState(true);
         return;
     }
@@ -160,44 +138,31 @@ function updateCountdown() {
 
 // --- Main Application Logic ---
 
-// Set the initial UI state visually before any logic runs
 lockScreen.style.display = 'flex';
 unlockScreen.style.display = 'none';
 
-refreshButton.addEventListener('click', () => {
-    console.log('Refresh clicked, fetching bookings...');
-    window.electronAPI.refreshBookings().then(checkForActiveBooking);
-});
-
-// This is the main entry point for the renderer's logic.
 async function initialize() {
     console.log("Initializing renderer...");
     
-    // 1. Get the configuration from the main process.
     config = await window.electronAPI.getConfig();
     console.log('Config loaded:', config);
     
-    // 2. Perform the single, authoritative fetch on startup.
-    const initialBookings = await window.electronAPI.refreshBookings();
-    localBookings = initialBookings; // Populate local cache
+    // Get the initial bookings from the main process's memory.
+    const initialBookings = await window.electronAPI.getInitialBookings();
+    localBookings = initialBookings;
     
-    // 3. Check the initial bookings and set the correct state, which will also start the correct timers.
-    checkForActiveBooking(initialBookings);
+    // Set the correct state, which will also start the high-frequency local check.
+    checkForActiveBooking(localBookings);
 
-    // 4. Start the heartbeat interval.
+    // Start the heartbeat interval. This logic is unchanged.
     startHeartbeat();
 }
 
 function startHeartbeat() {
-    // Clear any existing interval
     if (heartbeatInterval) {
         clearInterval(heartbeatInterval);
     }
-
-    // Immediately send a heartbeat on startup
     sendHeartbeat();
-
-    // Then set it to run every 5 minutes
     const HEARTBEAT_INTERVAL_MS = 5 * 60 * 1000;
     heartbeatInterval = setInterval(sendHeartbeat, HEARTBEAT_INTERVAL_MS);
     console.log(`Heartbeat service started. Checking in every ${HEARTBEAT_INTERVAL_MS / 1000}s.`);
@@ -221,9 +186,9 @@ function sendHeartbeat() {
 // Start the application.
 initialize();
 
-// Listen for updates pushed from the main process
-window.electronAPI.onBookingsUpdated((bookings) => {
-    // This listener is now effectively unused on startup, but could be useful in the future.
-    console.log('Received booking updates from main process.');
-    checkForActiveBooking(bookings);
+// Listen for real-time updates pushed from the main process via WebSocket
+window.electronAPI.onBookingsUpdated((updatedBookings) => {
+    console.log('Received booking updates from main process via WebSocket.');
+    localBookings = updatedBookings; // Update the entire local cache
+    checkForActiveBooking(localBookings);
 }); 
