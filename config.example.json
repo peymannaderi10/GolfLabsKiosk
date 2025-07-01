@@ -2,6 +2,7 @@
     "bayId": "your-unique-bay-id-goes-here",
     "locationId": "your-location-id-goes-here",
     "apiBaseUrl": "http://localhost:4242",
-    "timezone": "America/New_York"
+    "timezone": "America/New_York",
+    "shellyIP": "XX.X.X.XXX"
 }
  
