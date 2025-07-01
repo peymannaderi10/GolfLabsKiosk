@@ -1,10 +1,13 @@
-const { app, BrowserWindow, ipcMain } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const { io } = require('socket.io-client');
 const axios = require('axios');
 
-const CONFIG_PATH = path.join(__dirname, 'config.json');
+const isDev = process.argv.includes('--dev');
+const userDataPath = app.getPath('userData');
+const CONFIG_PATH = path.join(userDataPath, 'config.json');
+const CONFIG_EXAMPLE_PATH = path.join(__dirname, 'config.example.json');
 
 let config;
 let mainWindow;
@@ -14,20 +17,47 @@ let pollingInterval;
 
 function loadConfig() {
   try {
+    // Check if config.json exists in the user's data directory.
+    if (!fs.existsSync(CONFIG_PATH)) {
+      console.log('config.json not found. Attempting to create it from example.');
+      
+      // If not, copy it from the example included with the app.
+      fs.copyFileSync(CONFIG_EXAMPLE_PATH, CONFIG_PATH);
+      
+      dialog.showMessageBoxSync({
+        type: 'info',
+        title: 'Configuration Needed',
+        message: 'A new configuration file has been created for you. Please edit it before restarting the application.',
+        detail: `The file is located at: ${CONFIG_PATH}`
+      });
+      
+      // Quit the app so the user can configure it.
+      app.quit();
+      return;
+    }
+
     const configData = fs.readFileSync(CONFIG_PATH);
     config = JSON.parse(configData);
+    
+    // Basic validation
+    if (!config.bayId || !config.locationId || !config.apiBaseUrl || !config.shellyIP) {
+        throw new Error('One or more required fields are missing from config.json: bayId, locationId, apiBaseUrl, shellyIP');
+    }
+
   } catch (error) {
-    console.error('FATAL: config.json not found or is invalid.', error);
+    console.error('FATAL: config.json is invalid or cannot be accessed.', error);
+    dialog.showErrorBox(
+      'Fatal Configuration Error',
+      `Could not load or create the configuration file. Please check the file at ${CONFIG_PATH}.\n\nError: ${error.message}`
+    );
     app.quit();
   }
 }
 
 function createWindow () {
-  const isDev = !app.isPackaged;
-
   mainWindow = new BrowserWindow({
-    width: 1200,
-    height: 800,
+    width: isDev ? 1200 : 1920,
+    height: isDev ? 800 : 1080,
     fullscreen: !isDev,
     transparent: true,
     frame: isDev,
@@ -323,4 +353,15 @@ ipcMain.handle('log-access', async (event, logData) => {
         }
         throw error;
     }
-}); 
+});
+
+// --- NEW: Global error handling for packaged app ---
+process.on('uncaughtException', (error) => {
+  console.error('An uncaught exception occurred:', error);
+  dialog.showErrorBox(
+    'Application Error',
+    `An unexpected error occurred. Please restart the application.\n\nDetails: ${error.stack || error.message}`
+  );
+  app.quit();
+});
+// --- END NEW --- 

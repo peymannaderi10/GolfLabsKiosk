@@ -1,118 +1,47 @@
 {
   "name": "golflabskiosk",
   "version": "1.0.0",
-  "description": "Golf Labs Kiosk Application - Automated bay access control and booking management",
+  "description": "Golf Labs Kiosk Application",
   "main": "main.js",
-  "homepage": "https://golflabs.us",
-  "author": {
-    "name": "Golf Labs US",
-    "email": "support@golflabs.us"
-  },
-  "license": "ISC",
   "scripts": {
     "start": "electron .",
-    "dev": "electron .",
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "build": "electron-builder",
-    "build:win": "electron-builder --win",
-    "build:mac": "electron-builder --mac", 
-    "build:all": "electron-builder --mac --win",
-    "dist": "npm run build",
-    "pack": "electron-builder --dir",
-    "postinstall": "electron-builder install-app-deps"
+    "dev": "electron . --dev",
+    "dist": "electron-builder"
+  },
+  "keywords": [
+    "golf",
+    "kiosk",
+    "simulator"
+  ],
+  "author": "Golf Labs US",
+  "license": "ISC",
+  "devDependencies": {
+    "electron": "^31.0.2",
+    "electron-builder": "^24.13.3"
+  },
+  "dependencies": {
+    "axios": "^1.7.2",
+    "socket.io-client": "^4.7.5"
   },
   "build": {
     "appId": "com.golflabs.kiosk",
     "productName": "Golf Labs Kiosk",
-    "directories": {
-      "output": "dist"
-    },
     "files": [
       "main.js",
-      "renderer.js", 
       "preload.js",
+      "renderer.js",
       "index.html",
       "styles.css",
-      "config.example.json",
-      "node_modules/**/*"
+      "config.example.json"
     ],
-    "extraResources": [
-      {
-        "from": "config.example.json",
-        "to": "config.example.json"
-      }
-    ],
-    "mac": {
-      "category": "public.app-category.business",
-      "target": [
-        {
-          "target": "dmg",
-          "arch": ["x64", "arm64"]
-        },
-        {
-          "target": "pkg",
-          "arch": ["x64", "arm64"]
-        }
-      ],
-      "icon": "assets/icon.icns"
-    },
     "win": {
-      "target": [
-        {
-          "target": "nsis",
-          "arch": ["x64"]
-        },
-        {
-          "target": "portable",
-          "arch": ["x64"]
-        }
-      ],
+      "target": "nsis",
       "icon": "assets/icon.ico"
     },
     "nsis": {
       "oneClick": false,
-      "allowToChangeInstallationDirectory": true,
-      "createDesktopShortcut": true,
-      "createStartMenuShortcut": true,
-      "shortcutName": "Golf Labs Kiosk"
-    },
-    "dmg": {
-      "title": "Golf Labs Kiosk Installer",
-      "backgroundColor": "#2c5530",
-      "window": {
-        "width": 540,
-        "height": 380
-      },
-      "contents": [
-        {
-          "x": 410,
-          "y": 220,
-          "type": "link",
-          "path": "/Applications"
-        },
-        {
-          "x": 130,
-          "y": 220,
-          "type": "file"
-        }
-      ]
-    },
-    "publish": null
-  },
-  "keywords": [
-    "golf",
-    "simulator", 
-    "kiosk",
-    "booking",
-    "access-control"
-  ],
-  "devDependencies": {
-    "electron": "^37.1.0",
-    "electron-builder": "^25.0.5"
-  },
-  "dependencies": {
-    "axios": "^1.10.0",
-    "socket.io": "^4.8.1",
-    "socket.io-client": "^4.8.1"
+      "perMachine": true,
+      "allowToChangeInstallationDirectory": true
+    }
   }
 }

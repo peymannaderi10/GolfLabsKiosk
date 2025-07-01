@@ -234,37 +234,4 @@ In development mode, you can:
 
 ---
 
-## Creating Installers
-
-You can create professional installers for both Mac and Windows platforms:
-
-### Quick Build Commands
-```bash
-# Install electron-builder (if not already installed)
-npm install electron-builder --save-dev
-
-# Build for current platform
-npm run build
-
-# Build for specific platforms
-npm run build:win    # Windows installer
-npm run build:mac    # Mac installer (macOS required)
-npm run build:all    # Both platforms
-```
-
-### Installer Features
-- **Windows**: NSIS installer with desktop shortcuts and uninstaller
-- **Mac**: DMG with drag-and-drop installation + PKG installer
-- **Universal builds**: Support for both Intel and Apple Silicon Macs
-- **Code signing ready**: For production deployment
-
-### Requirements
-- **Icons**: Place `icon.ico` (Windows) and `icon.icns` (Mac) in `assets/` directory
-- **macOS**: Required for building Mac installers (due to Apple restrictions)
-- **Windows**: Can be built from any platform
-
-📖 **See [BUILD.md](BUILD.md) for complete installation and distribution guide**
-
----
-
 *Golf Labs Kiosk - Powering seamless automated golf experiences* 
