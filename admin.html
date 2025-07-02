@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Kiosk Admin Panel</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #1e1e1e 0%, #2d2d2d 100%);
+            color: #ffffff;
+            padding: 20px;
+            min-height: 100vh;
+        }
+
+        .admin-header {
+            text-align: center;
+            margin-bottom: 30px;
+            border-bottom: 1px solid #444;
+            padding-bottom: 20px;
+        }
+
+        .admin-header h1 {
+            color: #00A36C;
+            font-size: 24px;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+
+        .admin-header p {
+            color: #aaa;
+            font-size: 14px;
+        }
+
+        .admin-section {
+            margin-bottom: 25px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 8px;
+            padding: 20px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .section-title {
+            font-size: 16px;
+            font-weight: 600;
+            color: #00A36C;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .admin-button {
+            background: linear-gradient(135deg, #00A36C, #008B5A);
+            border: none;
+            color: white;
+            padding: 12px 20px;
+            margin: 5px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            min-width: 160px;
+            justify-content: center;
+        }
+
+        .admin-button:hover {
+            background: linear-gradient(135deg, #008B5A, #007547);
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(0, 163, 108, 0.3);
+        }
+
+        .admin-button:active {
+            transform: translateY(0);
+        }
+
+        .danger-button {
+            background: linear-gradient(135deg, #dc3545, #c82333);
+        }
+
+        .danger-button:hover {
+            background: linear-gradient(135deg, #c82333, #a71e2a);
+            box-shadow: 0 4px 12px rgba(220, 53, 69, 0.3);
+        }
+
+        .warning-button {
+            background: linear-gradient(135deg, #fd7e14, #e8690b);
+        }
+
+        .warning-button:hover {
+            background: linear-gradient(135deg, #e8690b, #d9530a);
+            box-shadow: 0 4px 12px rgba(253, 126, 20, 0.3);
+        }
+
+        .button-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+            gap: 10px;
+        }
+
+        .status-display {
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 4px;
+            padding: 10px;
+            margin-top: 15px;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            color: #ccc;
+            border-left: 3px solid #00A36C;
+        }
+
+        .monitor-info {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .monitor-info:last-child {
+            border-bottom: none;
+        }
+
+        .icon {
+            width: 16px;
+            height: 16px;
+            fill: currentColor;
+        }
+
+        .primary-badge {
+            background: #00A36C;
+            color: white;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 10px;
+            font-weight: 600;
+        }
+
+        .exit-button {
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            color: #ccc;
+            padding: 12px 20px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            width: 100%;
+            margin-top: 20px;
+            transition: all 0.2s ease;
+        }
+
+        .exit-button:hover {
+            background: rgba(255, 255, 255, 0.2);
+            color: white;
+        }
+    </style>
+</head>
+<body>
+    <div class="admin-header">
+        <h1>🔧 Golf Labs Kiosk Admin</h1>
+        <p>System administration and multi-monitor management</p>
+    </div>
+
+    <div class="admin-section">
+        <div class="section-title">
+            <svg class="icon" viewBox="0 0 24 24">
+                <path d="M12,1L3,5V11C3,16.55 6.84,21.74 12,23C17.16,21.74 21,16.55 21,11V5L12,1M12,7C13.4,7 14.8,8.6 14.8,10V11.5C14.8,12.61 13.91,13.5 12.8,13.5H11.2C10.09,13.5 9.2,12.61 9.2,11.5V10C9.2,8.6 10.6,7 12,7Z"/>
+            </svg>
+            Application Control
+        </div>
+        <div class="button-grid">
+            <button class="admin-button warning-button" onclick="restartApp()">
+                <svg class="icon" viewBox="0 0 24 24">
+                    <path d="M2,12A10,10 0 0,1 12,2A10,10 0 0,1 22,12A10,10 0 0,1 12,22A10,10 0 0,1 2,12M18,12A6,6 0 0,0 12,6V9L8,5L12,1V4A8,8 0 0,1 20,12C20,12.68 19.9,13.34 19.71,13.96L18,12Z"/>
+                </svg>
+                Restart App
+            </button>
+            <button class="admin-button danger-button" onclick="closeApp()">
+                <svg class="icon" viewBox="0 0 24 24">
+                    <path d="M19,6.41L17.59,5L12,10.59L6.41,5L5,6.41L10.59,12L5,17.59L6.41,19L12,13.41L17.59,19L19,17.59L13.41,12L19,6.41Z"/>
+                </svg>
+                Close App
+            </button>
+        </div>
+    </div>
+
+    <div class="admin-section">
+        <div class="section-title">
+            <svg class="icon" viewBox="0 0 24 24">
+                <path d="M21,16H3V4H21M21,2H3C1.89,2 1,2.89 1,4V16A2,2 0 0,0 3,18H10V20H8V22H16V20H14V18H21A2,2 0 0,0 23,16V4C23,2.89 22.1,2 21,2Z"/>
+            </svg>
+            Monitor Management
+        </div>
+        <div id="display-info" class="status-display">
+            Loading display information...
+        </div>
+        <div class="button-grid">
+            <button class="admin-button" onclick="disconnectMonitors()">
+                <svg class="icon" viewBox="0 0 24 24">
+                    <path d="M8,3V5H16V3H18V5H20A2,2 0 0,1 22,7V19A2,2 0 0,1 20,21H4A2,2 0 0,1 2,19V7A2,2 0 0,1 4,5H6V3H8M4,19H20V10H4V19M6,12H18V17H6V12Z"/>
+                </svg>
+                Disconnect Extra
+            </button>
+            <button class="admin-button" onclick="reconnectMonitors()">
+                <svg class="icon" viewBox="0 0 24 24">
+                    <path d="M21,16H3V4H21M21,2H3C1.89,2 1,2.89 1,4V16A2,2 0 0,0 3,18H10V20H8V22H16V20H14V18H21A2,2 0 0,0 23,16V4C23,2.89 22.1,2 21,2Z"/>
+                </svg>
+                Reconnect All
+            </button>
+        </div>
+    </div>
+
+    <div class="admin-section">
+        <div class="section-title">
+            <svg class="icon" viewBox="0 0 24 24">
+                <path d="M15,9H9V7.5H15M15,16.5H9V15H15M12,2A10,10 0 0,1 22,12A10,10 0 0,1 12,22A10,10 0 0,1 2,12A10,10 0 0,1 12,2M12,4A8,8 0 0,0 4,12A8,8 0 0,0 12,20A8,8 0 0,0 20,12A8,8 0 0,0 12,4Z"/>
+            </svg>
+            Connection Management
+        </div>
+        <div class="button-grid">
+            <button class="admin-button" onclick="reconnectWebsocket()">
+                <svg class="icon" viewBox="0 0 24 24">
+                    <path d="M8.5,13.5L11,16.5L14.5,12L19,18H5M21,19V5C21,3.89 20.1,3 19,3H5A2,2 0 0,0 3,5V19A2,2 0 0,0 5,21H19A2,2 0 0,0 21,19Z"/>
+                </svg>
+                Reconnect WebSocket
+            </button>
+        </div>
+    </div>
+
+    <button class="exit-button" onclick="exitAdmin()">
+        ← Exit Admin Mode
+    </button>
+
+    <script>
+        let displayInfo = null;
+
+        async function loadDisplayInfo() {
+            try {
+                displayInfo = await window.electronAPI.getDisplayInfo();
+                updateDisplayInfo();
+            } catch (error) {
+                console.error('Failed to load display info:', error);
+                document.getElementById('display-info').textContent = 'Error loading display information';
+            }
+        }
+
+        function updateDisplayInfo() {
+            const infoElement = document.getElementById('display-info');
+            if (!displayInfo) {
+                infoElement.textContent = 'No display information available';
+                return;
+            }
+
+            const { displays, additionalWindowsCount } = displayInfo;
+            
+            let infoHtml = `
+                <div style="margin-bottom: 10px;">
+                    <strong>Total Displays:</strong> ${displays.length} | 
+                    <strong>Active Windows:</strong> ${additionalWindowsCount + 1} (1 primary + ${additionalWindowsCount} additional)
+                </div>
+            `;
+
+            displays.forEach((display, index) => {
+                infoHtml += `
+                    <div class="monitor-info">
+                        <span>Display ${index + 1}: ${display.bounds.width}×${display.bounds.height}</span>
+                        ${display.isPrimary ? '<span class="primary-badge">PRIMARY</span>' : ''}
+                    </div>
+                `;
+            });
+
+            infoElement.innerHTML = infoHtml;
+        }
+
+        async function restartApp() {
+            if (confirm('Are you sure you want to restart the application?')) {
+                try {
+                    await window.electronAPI.adminRestartApp();
+                } catch (error) {
+                    console.error('Restart failed:', error);
+                    alert('Failed to restart application');
+                }
+            }
+        }
+
+        async function closeApp() {
+            if (confirm('Are you sure you want to close the application?')) {
+                try {
+                    await window.electronAPI.adminCloseApp();
+                } catch (error) {
+                    console.error('Close failed:', error);
+                    alert('Failed to close application');
+                }
+            }
+        }
+
+        async function disconnectMonitors() {
+            try {
+                const result = await window.electronAPI.adminDisconnectMonitors();
+                alert(result.message);
+                await loadDisplayInfo(); // Refresh display info
+            } catch (error) {
+                console.error('Disconnect failed:', error);
+                alert('Failed to disconnect monitors');
+            }
+        }
+
+        async function reconnectMonitors() {
+            try {
+                const result = await window.electronAPI.adminReconnectMonitors();
+                alert(result.message);
+                await loadDisplayInfo(); // Refresh display info
+            } catch (error) {
+                console.error('Reconnect failed:', error);
+                alert('Failed to reconnect monitors');
+            }
+        }
+
+        async function reconnectWebsocket() {
+            try {
+                const result = await window.electronAPI.adminReconnectWebsocket();
+                alert(result.message);
+            } catch (error) {
+                console.error('WebSocket reconnect failed:', error);
+                alert('Failed to reconnect WebSocket');
+            }
+        }
+
+        async function exitAdmin() {
+            try {
+                await window.electronAPI.adminClose();
+            } catch (error) {
+                console.error('Exit admin failed:', error);
+            }
+        }
+
+        // Load display information when the page loads
+        window.addEventListener('DOMContentLoaded', loadDisplayInfo);
+
+        // Refresh display info every 5 seconds
+        setInterval(loadDisplayInfo, 5000);
+    </script>
+</body>
+</html> 

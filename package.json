@@ -31,6 +31,7 @@
       "preload.js",
       "renderer.js",
       "index.html",
+      "admin.html",
       "styles.css",
       "config.example.json"
     ],

@@ -37,6 +37,13 @@ The kiosk operates as a real-time client, maintaining constant communication wit
 - **Heartbeat Monitoring**: Regular health checks with the backend system
 - **Manual Sync**: Staff refresh capability for troubleshooting
 
+### 🖥️ **Multi-Monitor & Security Features**
+- **Multi-Monitor Support**: Automatically detects and spans across all connected displays
+- **Keyboard Lockdown**: Disables common escape shortcuts (Alt+F4, Ctrl+Alt+Del, etc.) in production mode
+- **Admin Mode**: Secure administrative interface accessible via PgUp+PgDn key combination
+- **Monitor Management**: Ability to disconnect/reconnect additional monitors on-demand
+- **System Control**: Administrative restart, shutdown, and WebSocket reconnection capabilities
+
 ---
 
 ## Prerequisites
@@ -233,5 +240,42 @@ In development mode, you can:
 - Test unlock commands manually
 
 ---
+
+## Admin Mode
+
+### Accessing Admin Mode
+Press **PgUp + PgDn** keys simultaneously to open the admin panel. This provides secure access to system management functions without compromising the kiosk's locked-down state.
+
+### Admin Features
+- **Application Control**: Restart or close the entire kiosk application
+- **Monitor Management**: View connected displays and manage multi-monitor setup
+- **Connection Management**: Reconnect WebSocket connections if needed
+- **System Information**: Real-time display of connected monitors and window status
+
+### Security Considerations
+- Admin mode is only accessible via specific key combination
+- All admin actions require confirmation to prevent accidental changes
+- Admin panel automatically tracks connected displays and window states
+- Keyboard shortcuts are disabled in production mode except for admin access
+
+## Multi-Monitor Setup
+
+### Automatic Detection
+The kiosk automatically:
+1. Detects all connected displays on startup
+2. Creates fullscreen windows on each display
+3. Synchronizes booking data across all windows
+4. Maintains proper window hierarchy (primary + secondary displays)
+
+### Monitor Management
+Through admin mode, you can:
+- **View Display Information**: See resolution and status of each connected display
+- **Disconnect Extra Monitors**: Close windows on secondary displays while keeping primary
+- **Reconnect Monitors**: Re-enable windows on all detected displays
+- **Real-time Monitoring**: Track active window count and display configurations
+
+### Production vs Development
+- **Production Mode**: All displays show fullscreen kiosk interface, shortcuts disabled
+- **Development Mode**: Windowed mode on primary display only, shortcuts enabled for debugging
 
 *Golf Labs Kiosk - Powering seamless automated golf experiences* 

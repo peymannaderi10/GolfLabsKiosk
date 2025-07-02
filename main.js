@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, dialog } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, screen, globalShortcut } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const { io } = require('socket.io-client');
@@ -11,9 +11,16 @@ const CONFIG_EXAMPLE_PATH = path.join(__dirname, 'config.example.json');
 
 let config;
 let mainWindow;
+let additionalWindows = [];
+let adminWindow = null;
 let socket;
 let bookings = []; // In-memory store for bookings
 let pollingInterval;
+let isAdminMode = false;
+
+// Admin mode key tracking
+let keysPressed = new Set();
+let adminKeyCombo = ['PageUp', 'PageDown'];
 
 function loadConfig() {
   try {
@@ -54,13 +61,74 @@ function loadConfig() {
   }
 }
 
-function createWindow () {
-  mainWindow = new BrowserWindow({
-    width: isDev ? 1200 : 1920,
-    height: isDev ? 800 : 1080,
+function registerGlobalShortcuts() {
+  if (isDev) return; // Don't disable shortcuts in dev mode
+
+  // Disable common shortcuts that could be used to close the app
+  const shortcutsToDisable = [
+    'CommandOrControl+Alt+Delete',
+    'Alt+F4',
+    'CommandOrControl+W',
+    'CommandOrControl+Q',
+    'CommandOrControl+Shift+Q',
+    'CommandOrControl+R',
+    'CommandOrControl+Shift+R',
+    'F5',
+    'CommandOrControl+F5',
+    'F11',
+    'CommandOrControl+Shift+I',
+    'CommandOrControl+Shift+J',
+    'CommandOrControl+U',
+    'Alt+Tab',
+    'CommandOrControl+Tab',
+    'CommandOrControl+Shift+Tab',
+    'CommandOrControl+Escape',
+    'Alt+Space',
+    'CommandOrControl+Shift+Delete',
+    'CommandOrControl+Shift+T',
+    'CommandOrControl+T',
+    'CommandOrControl+N',
+    'CommandOrControl+Shift+N'
+  ];
+
+  shortcutsToDisable.forEach(shortcut => {
+    globalShortcut.register(shortcut, () => {
+      console.log(`Blocked shortcut: ${shortcut}`);
+      // Do nothing - this blocks the shortcut
+    });
+  });
+
+  console.log(`Registered ${shortcutsToDisable.length} global shortcuts to disable`);
+}
+
+function createWindows() {
+  const displays = screen.getAllDisplays();
+  console.log(`Found ${displays.length} display(s)`);
+
+  // Create main window on primary display
+  const primaryDisplay = screen.getPrimaryDisplay();
+  mainWindow = createWindow(primaryDisplay, true);
+
+  // Create additional windows on other displays
+  displays.forEach((display, index) => {
+    if (display.id !== primaryDisplay.id) {
+      console.log(`Creating window for display ${index + 1}: ${display.bounds.width}x${display.bounds.height}`);
+      const window = createWindow(display, false);
+      additionalWindows.push(window);
+    }
+  });
+}
+
+function createWindow(display, isPrimary = false) {
+  const window = new BrowserWindow({
+    x: display.bounds.x,
+    y: display.bounds.y,
+    width: isDev ? 1200 : display.bounds.width,
+    height: isDev ? 800 : display.bounds.height,
     fullscreen: !isDev,
     transparent: true,
     frame: isDev,
+    show: false,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
@@ -68,16 +136,97 @@ function createWindow () {
     }
   });
 
-  mainWindow.loadFile('index.html');
-  mainWindow.on('closed', () => {
-    mainWindow = null;
-    if (socket) socket.disconnect();
-    clearInterval(pollingInterval);
+  window.loadFile('index.html');
+  
+  window.once('ready-to-show', () => {
+    window.show();
+    if (!isDev) {
+      window.setFullScreen(true);
+      window.setAlwaysOnTop(true, 'screen-saver');
+    }
+  });
+
+  window.on('closed', () => {
+    if (isPrimary) {
+      mainWindow = null;
+      if (socket) socket.disconnect();
+      clearInterval(pollingInterval);
+    }
+  });
+
+  // Handle admin mode key combinations
+  window.webContents.on('before-input-event', (event, input) => {
+    if (input.type === 'keyDown') {
+      keysPressed.add(input.key);
+      
+      // Check if admin combo is pressed
+      if (adminKeyCombo.every(key => keysPressed.has(key)) && !isAdminMode) {
+        openAdminMode();
+      }
+    } else if (input.type === 'keyUp') {
+      keysPressed.delete(input.key);
+    }
   });
   
-  if (isDev) {
-    mainWindow.webContents.openDevTools();
+  if (isDev && isPrimary) {
+    window.webContents.openDevTools();
   }
+
+  return window;
+}
+
+function openAdminMode() {
+  if (adminWindow || isAdminMode) return;
+  
+  isAdminMode = true;
+  console.log('Opening admin mode');
+
+  adminWindow = new BrowserWindow({
+    width: 600,
+    height: 700,
+    frame: true,
+    alwaysOnTop: true,
+    resizable: false,
+    title: 'Kiosk Admin',
+    webPreferences: {
+      preload: path.join(__dirname, 'preload.js'),
+      contextIsolation: true,
+      nodeIntegration: false,
+    }
+  });
+
+  adminWindow.loadFile('admin.html');
+  
+  adminWindow.on('closed', () => {
+    adminWindow = null;
+    isAdminMode = false;
+    console.log('Admin mode closed');
+  });
+}
+
+function closeAdditionalWindows() {
+  additionalWindows.forEach(window => {
+    if (!window.isDestroyed()) {
+      window.close();
+    }
+  });
+  additionalWindows = [];
+  console.log('Closed all additional monitor windows');
+}
+
+function recreateAdditionalWindows() {
+  closeAdditionalWindows();
+  
+  const displays = screen.getAllDisplays();
+  const primaryDisplay = screen.getPrimaryDisplay();
+
+  displays.forEach((display, index) => {
+    if (display.id !== primaryDisplay.id) {
+      console.log(`Recreating window for display ${index + 1}`);
+      const window = createWindow(display, false);
+      additionalWindows.push(window);
+    }
+  });
 }
 
 function connectToWebSocket() {
@@ -116,10 +265,12 @@ function connectToWebSocket() {
     console.log('Received full bookings refresh:', payload);
     if (payload.bayId === config.bayId) {
       bookings = payload.bookings;
-      // Notify renderer of the update
-      if (mainWindow) {
-        mainWindow.webContents.send('bookings-updated', bookings);
-      }
+      // Notify all windows of the update
+      [mainWindow, ...additionalWindows].forEach(window => {
+        if (window && !window.isDestroyed()) {
+          window.webContents.send('bookings-updated', bookings);
+        }
+      });
     }
   });
   
@@ -141,10 +292,12 @@ function connectToWebSocket() {
         }
       }
       
-      // Notify renderer of the update
-      if (mainWindow) {
-        mainWindow.webContents.send('bookings-updated', bookings);
-      }
+      // Notify all windows of the update
+      [mainWindow, ...additionalWindows].forEach(window => {
+        if (window && !window.isDestroyed()) {
+          window.webContents.send('bookings-updated', bookings);
+        }
+      });
     }
   });
 
@@ -283,10 +436,10 @@ function setupPolling() {
     }, SIX_HOURS);
 }
 
-
 app.on('ready', () => {
   loadConfig();
-  createWindow();
+  createWindows();
+  registerGlobalShortcuts();
   connectToWebSocket();
   setupPolling();
 });
@@ -297,8 +450,13 @@ app.on('window-all-closed', function () {
 
 app.on('activate', function () {
   if (mainWindow === null) {
-    createWindow();
+    createWindows();
   }
+});
+
+app.on('will-quit', () => {
+  // Unregister all shortcuts
+  globalShortcut.unregisterAll();
 });
 
 // IPC handler for renderer to request config
@@ -309,6 +467,54 @@ ipcMain.handle('get-config', () => {
 // IPC handler for renderer to get the initial list of bookings
 ipcMain.handle('get-initial-bookings', () => {
     return bookings;
+});
+
+// Admin mode IPC handlers
+ipcMain.handle('admin-restart-app', () => {
+    app.relaunch();
+    app.exit(0);
+});
+
+ipcMain.handle('admin-close-app', () => {
+    app.quit();
+});
+
+ipcMain.handle('admin-disconnect-monitors', () => {
+    closeAdditionalWindows();
+    return { success: true, message: 'Additional monitors disconnected' };
+});
+
+ipcMain.handle('admin-reconnect-monitors', () => {
+    recreateAdditionalWindows();
+    return { success: true, message: 'Additional monitors reconnected' };
+});
+
+ipcMain.handle('admin-reconnect-websocket', () => {
+    if (socket) {
+        socket.disconnect();
+    }
+    connectToWebSocket();
+    return { success: true, message: 'WebSocket reconnection initiated' };
+});
+
+ipcMain.handle('admin-close', () => {
+    if (adminWindow) {
+        adminWindow.close();
+    }
+    return { success: true };
+});
+
+ipcMain.handle('get-display-info', () => {
+    const displays = screen.getAllDisplays();
+    const primaryDisplay = screen.getPrimaryDisplay();
+    return {
+        displays: displays.map(d => ({
+            id: d.id,
+            bounds: d.bounds,
+            isPrimary: d.id === primaryDisplay.id
+        })),
+        additionalWindowsCount: additionalWindows.length
+    };
 });
 
 ipcMain.handle('send-heartbeat', async (event, bayId) => {
