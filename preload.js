@@ -15,4 +15,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   adminReconnectWebsocket: () => ipcRenderer.invoke('admin-reconnect-websocket'),
   adminClose: () => ipcRenderer.invoke('admin-close'),
   getDisplayInfo: () => ipcRenderer.invoke('get-display-info'),
+  adminGetConfig: () => ipcRenderer.invoke('admin-get-config'),
+  adminSaveConfig: (config) => ipcRenderer.invoke('admin-save-config', config),
+  adminValidatePassword: (password) => ipcRenderer.invoke('admin-validate-password', password),
 }); 

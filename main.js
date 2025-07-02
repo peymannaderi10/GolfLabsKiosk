@@ -51,6 +51,12 @@ function loadConfig() {
         throw new Error('One or more required fields are missing from config.json: bayId, locationId, apiBaseUrl, shellyIP');
     }
 
+    // Set default admin password if not present
+    if (!config.adminPassword) {
+        config.adminPassword = 'admin123';
+        console.log('Admin password not found in config, using default: admin123');
+    }
+
   } catch (error) {
     console.error('FATAL: config.json is invalid or cannot be accessed.', error);
     dialog.showErrorBox(
@@ -495,6 +501,107 @@ ipcMain.handle('admin-reconnect-websocket', () => {
     }
     connectToWebSocket();
     return { success: true, message: 'WebSocket reconnection initiated' };
+});
+
+ipcMain.handle('admin-get-config', () => {
+    try {
+        const configData = fs.readFileSync(CONFIG_PATH, 'utf8');
+        const fullConfig = JSON.parse(configData);
+        
+        // Remove adminPassword from the response - we don't want to show it in the UI
+        const { adminPassword, ...configForUI } = fullConfig;
+        
+        return { 
+            success: true, 
+            config: configForUI,
+            configPath: CONFIG_PATH
+        };
+    } catch (error) {
+        console.error('Failed to read config file:', error);
+        return { 
+            success: false, 
+            error: error.message,
+            configPath: CONFIG_PATH
+        };
+    }
+});
+
+ipcMain.handle('admin-validate-password', (event, password) => {
+    try {
+        if (!config || !config.adminPassword) {
+            return { success: false, error: 'Admin password not configured' };
+        }
+        
+        const isValid = password === config.adminPassword;
+        return { 
+            success: isValid,
+            error: isValid ? null : 'Invalid password'
+        };
+    } catch (error) {
+        console.error('Error validating admin password:', error);
+        return { 
+            success: false, 
+            error: 'Password validation failed'
+        };
+    }
+});
+
+ipcMain.handle('admin-save-config', (event, newConfig) => {
+    try {
+        // Validate required fields (excluding adminPassword which is not editable)
+        const requiredFields = ['bayId', 'locationId', 'apiBaseUrl', 'shellyIP'];
+        for (const field of requiredFields) {
+            if (!newConfig[field] || typeof newConfig[field] !== 'string' || newConfig[field].trim() === '') {
+                throw new Error(`Required field '${field}' is missing or empty`);
+            }
+        }
+
+        // Validate URL format for apiBaseUrl
+        try {
+            new URL(newConfig.apiBaseUrl);
+        } catch {
+            throw new Error('apiBaseUrl must be a valid URL');
+        }
+
+        // Validate IP format for shellyIP (basic check)
+        const ipRegex = /^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/;
+        if (!ipRegex.test(newConfig.shellyIP.trim())) {
+            throw new Error('shellyIP must be a valid IP address');
+        }
+
+        // Read current config to preserve adminPassword
+        const currentConfigData = fs.readFileSync(CONFIG_PATH, 'utf8');
+        const currentConfig = JSON.parse(currentConfigData);
+        
+        // Merge new config with existing adminPassword
+        const finalConfig = {
+            ...newConfig,
+            adminPassword: currentConfig.adminPassword // Preserve existing password
+        };
+
+        // Create backup of current config
+        const backupPath = CONFIG_PATH + '.backup';
+        fs.copyFileSync(CONFIG_PATH, backupPath);
+
+        // Write new config
+        fs.writeFileSync(CONFIG_PATH, JSON.stringify(finalConfig, null, 4));
+
+        // Update the in-memory config
+        config = finalConfig;
+
+        console.log('Config file updated successfully');
+        return { 
+            success: true, 
+            message: 'Configuration saved successfully. Restart the application for all changes to take effect.',
+            requiresRestart: true
+        };
+    } catch (error) {
+        console.error('Failed to save config file:', error);
+        return { 
+            success: false, 
+            error: error.message 
+        };
+    }
 });
 
 ipcMain.handle('admin-close', () => {
