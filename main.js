@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, dialog, screen } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, screen, globalShortcut } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const { io } = require('socket.io-client');
@@ -120,25 +120,8 @@ function createWindow(display, isPrimary = false) {
       clearInterval(pollingInterval);
     }
   });
-
-  // Handle admin mode key combinations
-  window.webContents.on('before-input-event', (event, input) => {
-    if (input.type === 'keyDown') {
-      keysPressed.add(input.key);
-      
-      // Check if admin combo is pressed (exactly PageUp and PageDown, no other keys)
-      if (keysPressed.size === 2 && 
-          keysPressed.has('PageUp') && 
-          keysPressed.has('PageDown') && 
-          !isAdminMode) {
-        openAdminMode();
-      }
-    } else if (input.type === 'keyUp') {
-      keysPressed.delete(input.key);
-    }
-  });
   
-  // Clear key tracking when window regains focus to prevent stale key states
+  // Clear key tracking when window gets focus/blur to prevent stale key states
   window.on('focus', () => {
     keysPressed.clear();
   });
@@ -448,6 +431,13 @@ function setupPolling() {
 app.on('ready', () => {
   loadConfig();
   createWindows();
+  
+  // Register the global shortcut here
+  globalShortcut.register('PageUp+PageDown', () => {
+    console.log('Global shortcut PageUp+PageDown pressed');
+    openAdminMode();
+  });
+
   connectToWebSocket();
   setupPolling();
 });
@@ -460,6 +450,11 @@ app.on('activate', function () {
   if (mainWindow === null) {
     createWindows();
   }
+});
+
+app.on('will-quit', () => {
+  // Unregister all shortcuts when the app is about to quit.
+  globalShortcut.unregisterAll();
 });
 
 // IPC handler for renderer to request config
@@ -624,6 +619,14 @@ ipcMain.handle('admin-set-manual-unlock-state', (event, newState) => {
     });
 
     return { success: true };
+});
+
+// New handler to control window click-through behavior
+ipcMain.handle('set-ignore-mouse-events', (event, ignore) => {
+    const win = BrowserWindow.fromWebContents(event.sender);
+    if (win) {
+        win.setIgnoreMouseEvents(ignore, { forward: true });
+    }
 });
 
 ipcMain.handle('get-display-info', () => {

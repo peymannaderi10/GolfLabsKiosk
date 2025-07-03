@@ -124,7 +124,8 @@ html, body {
     width: 100vw;
     border: 5px solid hsl(var(--primary));
     box-sizing: border-box;
-    background: rgba(0, 0, 0, 0.1);
+    background: transparent;
+    pointer-events: none;
 }
 
 #countdown {
@@ -140,6 +141,7 @@ html, body {
     font-weight: 500;
     box-shadow: 0 8px 32px hsl(var(--background-dark) / 0.5);
     color: hsl(var(--foreground));
+    pointer-events: auto;
 }
 
 #refresh-button {
@@ -157,6 +159,7 @@ html, body {
     cursor: pointer;
     transition: all 0.2s ease;
     z-index: 1000;
+    pointer-events: auto;
 }
 
 #refresh-button:hover {

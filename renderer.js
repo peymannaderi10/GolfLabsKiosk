@@ -46,6 +46,9 @@ function setLockedState(isLocked, booking = null) {
     }
     isCurrentlyLocked = isLocked;
 
+    // Tell the main process to make the window click-through when unlocked
+    window.electronAPI.setIgnoreMouseEvents(!isLocked);
+
     // Always clear existing intervals to avoid multiple timers
     if (localCheckInterval) {
         clearInterval(localCheckInterval);

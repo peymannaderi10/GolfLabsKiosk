@@ -6,6 +6,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   onBookingsUpdated: (callback) => ipcRenderer.on('bookings-updated', (_event, value) => callback(value)),
   sendHeartbeat: (bayId) => ipcRenderer.invoke('send-heartbeat', bayId),
   logAccess: (logData) => ipcRenderer.invoke('log-access', logData),
+  setIgnoreMouseEvents: (ignore) => ipcRenderer.invoke('set-ignore-mouse-events', ignore),
   
   // Manual Unlock
   getManualUnlockState: () => ipcRenderer.invoke('admin-get-manual-unlock-state'),
