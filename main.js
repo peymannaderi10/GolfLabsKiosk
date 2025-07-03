@@ -67,46 +67,6 @@ function loadConfig() {
   }
 }
 
-function registerGlobalShortcuts() {
-  if (isDev) return; // Don't disable shortcuts in dev mode
-
-  // Disable common shortcuts that could be used to close the app
-  const shortcutsToDisable = [
-    'CommandOrControl+Alt+Delete',
-    'Alt+F4',
-    'CommandOrControl+W',
-    'CommandOrControl+Q',
-    'CommandOrControl+Shift+Q',
-    'CommandOrControl+R',
-    'CommandOrControl+Shift+R',
-    'F5',
-    'CommandOrControl+F5',
-    'F11',
-    'CommandOrControl+Shift+I',
-    'CommandOrControl+Shift+J',
-    'CommandOrControl+U',
-    'Alt+Tab',
-    'CommandOrControl+Tab',
-    'CommandOrControl+Shift+Tab',
-    'CommandOrControl+Escape',
-    'Alt+Space',
-    'CommandOrControl+Shift+Delete',
-    'CommandOrControl+Shift+T',
-    'CommandOrControl+T',
-    'CommandOrControl+N',
-    'CommandOrControl+Shift+N'
-  ];
-
-  shortcutsToDisable.forEach(shortcut => {
-    globalShortcut.register(shortcut, () => {
-      console.log(`Blocked shortcut: ${shortcut}`);
-      // Do nothing - this blocks the shortcut
-    });
-  });
-
-  console.log(`Registered ${shortcutsToDisable.length} global shortcuts to disable`);
-}
-
 function createWindows() {
   const displays = screen.getAllDisplays();
   console.log(`Found ${displays.length} display(s)`);
@@ -165,13 +125,25 @@ function createWindow(display, isPrimary = false) {
     if (input.type === 'keyDown') {
       keysPressed.add(input.key);
       
-      // Check if admin combo is pressed
-      if (adminKeyCombo.every(key => keysPressed.has(key)) && !isAdminMode) {
+      // Check if admin combo is pressed (exactly PageUp and PageDown, no other keys)
+      if (keysPressed.size === 2 && 
+          keysPressed.has('PageUp') && 
+          keysPressed.has('PageDown') && 
+          !isAdminMode) {
         openAdminMode();
       }
     } else if (input.type === 'keyUp') {
       keysPressed.delete(input.key);
     }
+  });
+  
+  // Clear key tracking when window regains focus to prevent stale key states
+  window.on('focus', () => {
+    keysPressed.clear();
+  });
+
+  window.on('blur', () => {
+    keysPressed.clear();
   });
   
   if (isDev && isPrimary) {
@@ -475,7 +447,6 @@ function setupPolling() {
 app.on('ready', () => {
   loadConfig();
   createWindows();
-  registerGlobalShortcuts();
   connectToWebSocket();
   setupPolling();
 });

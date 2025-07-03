@@ -27,6 +27,7 @@
   "build": {
     "appId": "com.golflabs.kiosk",
     "productName": "Golf Labs Kiosk",
+    "icon": "assets/GolfLabs.png",
     "files": [
       "main.js",
       "preload.js",
@@ -34,16 +35,19 @@
       "index.html",
       "admin.html",
       "styles.css",
-      "config.example.json"
+      "config.example.json",
+      "assets/**/*"
     ],
     "win": {
       "target": "nsis",
-      "icon": "assets/icon.ico"
+      "icon": "assets/GolfLabs.png"
     },
     "nsis": {
       "oneClick": false,
       "perMachine": true,
-      "allowToChangeInstallationDirectory": true
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true
     }
   }
 }
