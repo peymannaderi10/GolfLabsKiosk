@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, dialog, screen, globalShortcut } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, screen } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const { io } = require('socket.io-client');
@@ -459,11 +459,6 @@ app.on('activate', function () {
   if (mainWindow === null) {
     createWindows();
   }
-});
-
-app.on('will-quit', () => {
-  // Unregister all shortcuts
-  globalShortcut.unregisterAll();
 });
 
 // IPC handler for renderer to request config
