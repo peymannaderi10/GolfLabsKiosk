@@ -7,6 +7,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
   sendHeartbeat: (bayId) => ipcRenderer.invoke('send-heartbeat', bayId),
   logAccess: (logData) => ipcRenderer.invoke('log-access', logData),
   
+  // Manual Unlock
+  getManualUnlockState: () => ipcRenderer.invoke('admin-get-manual-unlock-state'),
+  setManualUnlockState: (state) => ipcRenderer.invoke('admin-set-manual-unlock-state', state),
+  onManualUnlockStateChanged: (callback) => ipcRenderer.on('manual-unlock-state-changed', (_event, value) => callback(value)),
+  
   // Admin mode APIs
   adminRestartApp: () => ipcRenderer.invoke('admin-restart-app'),
   adminCloseApp: () => ipcRenderer.invoke('admin-close-app'),

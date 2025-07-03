@@ -17,6 +17,7 @@ let socket;
 let bookings = []; // In-memory store for bookings
 let pollingInterval;
 let isAdminMode = false;
+let isManuallyUnlocked = false;
 
 // Admin mode key tracking
 let keysPressed = new Set();
@@ -604,6 +605,24 @@ ipcMain.handle('admin-close', () => {
     if (adminWindow) {
         adminWindow.close();
     }
+    return { success: true };
+});
+
+ipcMain.handle('admin-get-manual-unlock-state', () => {
+    return isManuallyUnlocked;
+});
+
+ipcMain.handle('admin-set-manual-unlock-state', (event, newState) => {
+    isManuallyUnlocked = newState;
+    console.log(`Manual unlock state set to: ${isManuallyUnlocked}`);
+
+    // Notify all windows of the change
+    [mainWindow, ...additionalWindows].forEach(window => {
+        if (window && !window.isDestroyed()) {
+            window.webContents.send('manual-unlock-state-changed', isManuallyUnlocked);
+        }
+    });
+
     return { success: true };
 });
 

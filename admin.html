@@ -379,6 +379,56 @@
         .admin-content.unlocked {
             display: block;
         }
+
+        /* Toggle Switch Styles */
+        .switch {
+            position: relative;
+            display: inline-block;
+            width: 60px;
+            height: 34px;
+        }
+        .switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #555;
+            transition: .4s;
+            border-radius: 34px;
+        }
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 26px;
+            width: 26px;
+            left: 4px;
+            bottom: 4px;
+            background-color: white;
+            transition: .4s;
+            border-radius: 50%;
+        }
+        input:checked + .slider {
+            background-color: #00A36C;
+        }
+        input:checked + .slider:before {
+            transform: translateX(26px);
+        }
+        .manual-control-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .manual-control-row label {
+            font-size: 16px;
+            font-weight: 500;
+        }
     </style>
 </head>
 <body>
@@ -412,7 +462,7 @@
         </div>
 
         <div class="admin-section">
-            <div class="section-title" onclick="toggleSection('app-control')">
+            <div class="section-title">
                 <svg class="icon" viewBox="0 0 24 24">
                     <path d="M12,1L3,5V11C3,16.55 6.84,21.74 12,23C17.16,21.74 21,16.55 21,11V5L12,1M12,7C13.4,7 14.8,8.6 14.8,10V11.5C14.8,12.61 13.91,13.5 12.8,13.5H11.2C10.09,13.5 9.2,12.61 9.2,11.5V10C9.2,8.6 10.6,7 12,7Z"/>
                 </svg>
@@ -440,7 +490,7 @@
         </div>
 
         <div class="admin-section">
-            <div class="section-title" onclick="toggleSection('monitor-mgmt')">
+            <div class="section-title">
                 <svg class="icon" viewBox="0 0 24 24">
                     <path d="M21,16H3V4H21M21,2H3C1.89,2 1,2.89 1,4V16A2,2 0 0,0 3,18H10V20H8V22H16V20H14V18H21A2,2 0 0,0 23,16V4C23,2.89 22.1,2 21,2Z"/>
                 </svg>
@@ -471,7 +521,7 @@
         </div>
 
         <div class="admin-section">
-            <div class="section-title" onclick="toggleSection('connection-mgmt')">
+            <div class="section-title">
                 <svg class="icon" viewBox="0 0 24 24">
                     <path d="M15,9H9V7.5H15M15,16.5H9V15H15M12,2A10,10 0 0,1 22,12A10,10 0 0,1 12,22A10,10 0 0,1 2,12A10,10 0 0,1 12,2M12,4A8,8 0 0,0 4,12A8,8 0 0,0 12,20A8,8 0 0,0 20,12A8,8 0 0,0 12,4Z"/>
                 </svg>
@@ -493,7 +543,7 @@
         </div>
 
         <div class="admin-section">
-            <div class="section-title" onclick="toggleSection('config-mgmt')">
+            <div class="section-title">
                 <svg class="icon" viewBox="0 0 24 24">
                     <path d="M12,15.5A3.5,3.5 0 0,1 8.5,12A3.5,3.5 0 0,1 12,8.5A3.5,3.5 0 0,1 15.5,12A3.5,3.5 0 0,1 12,15.5M19.43,12.97C19.47,12.65 19.5,12.33 19.5,12C19.5,11.67 19.47,11.34 19.43,11L21.54,9.37C21.73,9.22 21.78,8.95 21.66,8.73L19.66,5.27C19.54,5.05 19.27,4.96 19.05,5.05L16.56,6.05C16.04,5.66 15.5,5.32 14.87,5.07L14.5,2.42C14.46,2.18 14.25,2 14,2H10C9.75,2 9.54,2.18 9.5,2.42L9.13,5.07C8.5,5.32 7.96,5.66 7.44,6.05L4.95,5.05C4.73,4.96 4.46,5.05 4.34,5.27L2.34,8.73C2.22,8.95 2.27,9.22 2.46,9.37L4.57,11C4.53,11.34 4.5,11.67 4.5,12C4.5,12.33 4.53,12.65 4.57,12.97L2.46,14.63C2.27,14.78 2.22,15.05 2.34,15.27L4.34,18.73C4.46,18.95 4.73,19.03 4.95,18.95L7.44,17.94C7.96,18.34 8.5,18.68 9.13,18.93L9.5,21.58C9.54,21.82 9.75,22 10,22H14C14.25,22 14.46,21.82 14.5,21.58L14.87,18.93C15.5,18.68 16.04,18.34 16.56,17.94L19.05,18.95C19.27,19.03 19.54,18.95 19.66,18.73L21.66,15.27C21.78,15.05 21.73,14.78 21.54,14.63L19.43,12.97Z"/>
                 </svg>
@@ -534,6 +584,26 @@
                     </button>
                     <div id="config-message"></div>
                 </div>
+            </div>
+        </div>
+
+        <div class="admin-section">
+            <div class="section-title">
+                <svg class="icon" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 14H9V8h2v8zm4 0h-2V8h2v8z"></path></svg>
+                <span>Screen Control</span>
+                <svg class="collapse-icon collapsed" viewBox="0 0 24 24"><path d="M7.41 8.59L12 13.17l4.59-4.58L18 10l-6 6-6-6 1.41-1.41z"></path></svg>
+            </div>
+            <div class="section-content collapsed" id="screen-control-content">
+                <div class="manual-control-row">
+                    <label for="manual-unlock-switch">Manual Unlock Screen</label>
+                    <label class="switch">
+                        <input type="checkbox" id="manual-unlock-switch">
+                        <span class="slider"></span>
+                    </label>
+                </div>
+                <p style="font-size: 12px; color: #aaa; margin-top: 10px;">
+                    When enabled, the screen will be permanently unlocked, overriding any bookings. Disable to return to automatic booking-based control.
+                </p>
             </div>
         </div>
 
@@ -816,6 +886,31 @@
                 loadDisplayInfo();
             }
         }, 5000);
+
+        // This is the correct, existing initializer
+        document.querySelectorAll('.section-title').forEach(title => {
+            title.addEventListener('click', () => {
+                const content = title.nextElementSibling;
+                const icon = title.querySelector('.collapse-icon');
+                content.classList.toggle('expanded');
+                content.classList.toggle('collapsed');
+                icon.classList.toggle('collapsed');
+            });
+        });
+
+        // Initialize manual unlock switch
+        const manualUnlockSwitch = document.getElementById('manual-unlock-switch');
+
+        window.electronAPI.getManualUnlockState().then(initialState => {
+            manualUnlockSwitch.checked = initialState;
+        });
+
+        manualUnlockSwitch.addEventListener('change', (event) => {
+            const isUnlocked = event.target.checked;
+            window.electronAPI.setManualUnlockState(isUnlocked).then(result => {
+            });
+        });
+
     </script>
 </body>
 </html> 

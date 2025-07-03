@@ -9,10 +9,17 @@ let localCheckInterval = null;
 let isCurrentlyLocked = null;
 let localBookings = []; // This is now the definitive in-memory store for the renderer
 let heartbeatInterval = null;
+let isManuallyUnlocked = false;
 
-const LOCAL_CHECK_INTERVAL_MS = 5000;  // Check every 30 seconds
+const LOCAL_CHECK_INTERVAL_MS = 5000;  // Check every 5 seconds
 
 function logAccessEvent(action, success, booking = null) {
+    // Do not log session events for manual admin overrides
+    if (booking && booking.id === 'manual-override') {
+        console.log("Skipping access log for manual override action.");
+        return;
+    }
+
     if (!config) {
         console.error("Cannot log access event: config is not loaded.");
         return;
@@ -95,6 +102,18 @@ function parseTime(timeString) {
 }
 
 function checkForActiveBooking(bookings) {
+    // Priority 1: Check for manual override
+    if (isManuallyUnlocked) {
+        setLockedState(false, {
+            id: 'manual-override',
+            startTime: 'N/A',
+            endTime: 'N/A',
+            user: { name: 'Admin Override' }
+        });
+        return;
+    }
+
+    // Priority 2: Proceed with normal booking logic
     if (!config || !bookings) return;
 
     const now = new Date();
@@ -147,6 +166,9 @@ async function initialize() {
     config = await window.electronAPI.getConfig();
     console.log('Config loaded:', config);
     
+    // Get the initial manual unlock state from the main process
+    isManuallyUnlocked = await window.electronAPI.getManualUnlockState();
+    
     // Get the initial bookings from the main process's memory.
     const initialBookings = await window.electronAPI.getInitialBookings();
     localBookings = initialBookings;
@@ -191,4 +213,11 @@ window.electronAPI.onBookingsUpdated((updatedBookings) => {
     console.log('Received booking updates from main process via WebSocket.');
     localBookings = updatedBookings; // Update the entire local cache
     checkForActiveBooking(localBookings);
+});
+
+// Listen for manual unlock state changes
+window.electronAPI.onManualUnlockStateChanged((newState) => {
+    console.log(`Manual unlock state changed to: ${newState}`);
+    isManuallyUnlocked = newState;
+    checkForActiveBooking(localBookings); // Re-evaluate lock state immediately
 }); 
