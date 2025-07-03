@@ -6,7 +6,8 @@
   "scripts": {
     "start": "electron .",
     "dev": "electron . --dev",
-    "dist": "electron-builder"
+    "dist": "electron-builder",
+    "package": "powershell -Command \"$date = Get-Date -Format 'yyyy-MM-dd'; $zipName = \\\"GolfLabsKiosk-v1.0.0-$date.zip\\\"; if (Test-Path $zipName) { Remove-Item $zipName }; Compress-Archive -Path 'dist/Golf Labs Kiosk Setup 1.0.0.exe', 'README.md', 'config.example.json' -DestinationPath $zipName; Write-Host \\\"Distribution package created: $zipName\\\"\""
   },
   "keywords": [
     "golf",

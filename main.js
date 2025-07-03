@@ -187,6 +187,16 @@ function openAdminMode() {
   isAdminMode = true;
   console.log('Opening admin mode');
 
+  // Temporarily disable always-on-top for main window and additional windows
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.setAlwaysOnTop(false);
+  }
+  additionalWindows.forEach(window => {
+    if (window && !window.isDestroyed()) {
+      window.setAlwaysOnTop(false);
+    }
+  });
+
   adminWindow = new BrowserWindow({
     width: 600,
     height: 700,
@@ -194,6 +204,9 @@ function openAdminMode() {
     alwaysOnTop: true,
     resizable: false,
     title: 'Kiosk Admin',
+    skipTaskbar: false,
+    focusable: true,
+    modal: false,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
@@ -203,10 +216,27 @@ function openAdminMode() {
 
   adminWindow.loadFile('admin.html');
   
+  adminWindow.once('ready-to-show', () => {
+    adminWindow.show();
+    adminWindow.setAlwaysOnTop(true, 'pop-up-menu');
+    adminWindow.focus();
+    adminWindow.moveTop();
+  });
+  
   adminWindow.on('closed', () => {
     adminWindow = null;
     isAdminMode = false;
     console.log('Admin mode closed');
+    
+    // Re-enable always-on-top for main window and additional windows
+    if (mainWindow && !mainWindow.isDestroyed() && !isDev) {
+      mainWindow.setAlwaysOnTop(true, 'screen-saver');
+    }
+    additionalWindows.forEach(window => {
+      if (window && !window.isDestroyed() && !isDev) {
+        window.setAlwaysOnTop(true, 'screen-saver');
+      }
+    });
   });
 }
 
