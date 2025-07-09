@@ -155,7 +155,16 @@ function updateCountdown() {
     const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
     const seconds = Math.floor((diff % (1000 * 60)) / 1000);
 
-    countdown.textContent = `Time left: ${hours}h ${minutes}m ${seconds}s`;
+    let countdownText;
+    if (hours > 0) {
+        countdownText += `${hours}h ${minutes}m ${seconds}s`;
+    } else if (minutes > 0) {
+        countdownText += `${minutes}m ${seconds}s`;
+    } else {
+        countdownText += `${seconds}s`;
+    }
+
+    countdown.textContent = countdownText;
 }
 
 // --- Main Application Logic ---

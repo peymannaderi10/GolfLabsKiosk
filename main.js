@@ -12,11 +12,9 @@ const CONFIG_EXAMPLE_PATH = path.join(__dirname, 'config.example.json');
 let config;
 let mainWindow;
 let additionalWindows = [];
-let adminWindow = null;
 let socket;
 let bookings = []; // In-memory store for bookings
 let pollingInterval;
-let isAdminMode = false;
 let isManuallyUnlocked = false;
 
 // Admin mode key tracking
@@ -138,62 +136,19 @@ function createWindow(display, isPrimary = false) {
 }
 
 function openAdminMode() {
-  if (adminWindow || isAdminMode) return;
-  
-  isAdminMode = true;
-  console.log('Opening admin mode');
-
-  // Temporarily disable always-on-top for main window and additional windows
-  if (mainWindow && !mainWindow.isDestroyed()) {
-    mainWindow.setAlwaysOnTop(false);
+  // If we don't have a main window, or we are already on the admin page, do nothing.
+  if (!mainWindow || mainWindow.isDestroyed() || mainWindow.webContents.getURL().endsWith('admin.html')) {
+    console.log('Cannot open admin mode: Main window not available or already in admin mode.');
+    return;
   }
-  additionalWindows.forEach(window => {
-    if (window && !window.isDestroyed()) {
-      window.setAlwaysOnTop(false);
-    }
-  });
-
-  adminWindow = new BrowserWindow({
-    width: 600,
-    height: 700,
-    frame: true,
-    alwaysOnTop: true,
-    resizable: false,
-    title: 'Kiosk Admin',
-    skipTaskbar: false,
-    focusable: true,
-    modal: false,
-    webPreferences: {
-      preload: path.join(__dirname, 'preload.js'),
-      contextIsolation: true,
-      nodeIntegration: false,
-    }
-  });
-
-  adminWindow.loadFile('admin.html');
   
-  adminWindow.once('ready-to-show', () => {
-    adminWindow.show();
-    adminWindow.setAlwaysOnTop(true, 'pop-up-menu');
-    adminWindow.focus();
-    adminWindow.moveTop();
-  });
+  console.log('Switching main window to admin mode...');
+
+  // First, make the window solid and interactive again.
+  mainWindow.setIgnoreMouseEvents(false);
   
-  adminWindow.on('closed', () => {
-    adminWindow = null;
-    isAdminMode = false;
-    console.log('Admin mode closed');
-    
-    // Re-enable always-on-top for main window and additional windows
-    if (mainWindow && !mainWindow.isDestroyed() && !isDev) {
-      mainWindow.setAlwaysOnTop(true, 'screen-saver');
-    }
-    additionalWindows.forEach(window => {
-      if (window && !window.isDestroyed() && !isDev) {
-        window.setAlwaysOnTop(true, 'screen-saver');
-      }
-    });
-  });
+  // Then, load the admin file into the main window.
+  mainWindow.loadFile('admin.html');
 }
 
 function closeAdditionalWindows() {
@@ -596,9 +551,11 @@ ipcMain.handle('admin-save-config', (event, newConfig) => {
     }
 });
 
+// This handler now reloads the main kiosk view instead of closing a window.
 ipcMain.handle('admin-close', () => {
-    if (adminWindow) {
-        adminWindow.close();
+    if (mainWindow && !mainWindow.isDestroyed()) {
+        console.log('Exiting admin mode, reloading kiosk screen.');
+        mainWindow.loadFile('index.html');
     }
     return { success: true };
 });

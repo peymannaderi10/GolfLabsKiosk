@@ -130,16 +130,17 @@ html, body {
 
 #countdown {
     position: fixed;
-    top: 20px;
-    right: 20px;
-    background: hsl(var(--background-dark) / 0.9);
-    backdrop-filter: blur(10px);
-    padding: 16px 20px;
-    border-radius: 12px;
+    top: 15px;
+    right: 15px;
+    background: hsl(var(--background-dark) / 0.85);
+    backdrop-filter: blur(8px);
+    padding: 8px 14px;
+    border-radius: 10px;
     border: 1px solid hsl(var(--border));
     font-family: 'Inter', sans-serif;
+    font-size: 14px; /* Smaller font size */
     font-weight: 500;
-    box-shadow: 0 8px 32px hsl(var(--background-dark) / 0.5);
+    box-shadow: 0 6px 20px hsl(var(--background-dark) / 0.4);
     color: hsl(var(--foreground));
     pointer-events: auto;
 }
