@@ -249,12 +249,19 @@ function connectToWebSocket() {
   });
 
   // Listener for door unlock commands
-  socket.on('unlock', async (payload) => {
+  socket.on('unlock', async (payload, ack) => {
     console.log('Received unlock command:', payload);
+    const respond = (response) => {
+        if (typeof ack === 'function') {
+            ack(response);
+        }
+    };
     
     // Verify this unlock command is for our bay
     if (payload.bayId !== config.bayId) {
-      console.log(`Unlock command is for bay ${payload.bayId}, but we are bay ${config.bayId}. Ignoring.`);
+      const message = `Unlock command is for bay ${payload.bayId}, but we are bay ${config.bayId}. Ignoring.`;
+      console.log(message);
+      respond({ success: false, error: message });
       return;
     }
 
@@ -278,22 +285,17 @@ function connectToWebSocket() {
         }
       };
       
-      const response = await fetch(shellyUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(requestBody),
-        timeout: 5000 // 5 second timeout
-      });
+      // Using axios for consistent timeout handling as it's already a dependency
+      const response = await axios.post(shellyUrl, requestBody);
 
       const responseTime = Date.now() - unlockStartTime;
       
-      if (!response.ok) {
-        throw new Error(`Shelly API responded with status ${response.status}: ${response.statusText}`);
+      if (response.status !== 200 || (response.data && response.data.error)) {
+        const errorMessage = response.data.error ? JSON.stringify(response.data.error) : `Shelly API responded with status ${response.status}`;
+        throw new Error(errorMessage);
       }
 
-      const result = await response.json().catch(() => ({}));
+      const result = response.data;
       console.log('Shelly switch response:', result);
 
       // Log successful unlock
@@ -315,15 +317,13 @@ function connectToWebSocket() {
         }
       };
 
-      // Send success log to server
-      try {
-        await axios.post(`${config.apiBaseUrl}/logs/access`, logData);
-        console.log('Successfully logged unlock success');
-      } catch (logError) {
-        console.error('Failed to log unlock success:', logError.message);
-      }
+      // Send success log to server (fire and forget is fine for logging)
+      axios.post(`${config.apiBaseUrl}/logs/access`, logData)
+        .then(() => console.log('Successfully logged unlock success'))
+        .catch(logError => console.error('Failed to log unlock success:', logError.message));
 
       console.log(`Door successfully unlocked for ${duration} seconds`);
+      respond({ success: true, message: 'Door unlocked successfully' });
 
     } catch (error) {
       console.error('Error executing door unlock:', error);
@@ -358,13 +358,12 @@ function connectToWebSocket() {
         }
       };
 
-      // Send failure log to server
-      try {
-        await axios.post(`${config.apiBaseUrl}/logs/access`, logData);
-        console.log('Successfully logged unlock failure');
-      } catch (logError) {
-        console.error('Failed to log unlock failure:', logError.message);
-      }
+      // Send failure log to server (fire and forget is fine for logging)
+      axios.post(`${config.apiBaseUrl}/logs/access`, logData)
+        .then(() => console.log('Successfully logged unlock failure'))
+        .catch(logError => console.error('Failed to log unlock failure:', logError.message));
+        
+      respond({ success: false, error: error.message });
     }
   });
 }
