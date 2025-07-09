@@ -91,6 +91,7 @@ function createWindow(display, isPrimary = false) {
     width: isDev ? 1200 : display.bounds.width,
     height: isDev ? 800 : display.bounds.height,
     fullscreen: !isDev,
+    resizable: isDev,
     transparent: true,
     frame: isDev,
     show: false,
@@ -480,7 +481,7 @@ ipcMain.handle('admin-validate-password', (event, password) => {
         
         const isValid = password === config.adminPassword;
         return { 
-            success: isValid,
+            success: isValid, 
             error: isValid ? null : 'Invalid password'
         };
     } catch (error) {
