@@ -280,7 +280,7 @@ Through admin mode, you can:
 
 *Golf Labs Kiosk - Powering seamless automated golf experiences* 
 
-# Golf-Sim Kiosk Setup Guide
+# Golf-Sim Kiosk Setup Guide (OPTIONAL, KEYBOARD WITHOUT SPECIFIC KEYS CAN ALSO WORK)
 
 > **Applies to:** Windows 11 Pro (primary) & Windows 10 Pro (see "Windows 10 Notes" blocks)
 
