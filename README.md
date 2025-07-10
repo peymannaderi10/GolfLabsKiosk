@@ -280,7 +280,7 @@ Through admin mode, you can:
 
 *Golf Labs Kiosk - Powering seamless automated golf experiences* 
 
-# Golf-Sim Kiosk Setup Guide (OPTIONAL, KEYBOARD WITHOUT SPECIFIC KEYS CAN ALSO WORK)
+# Golf-Sim Kiosk Setup Guide
 
 > **Applies to:** Windows 11 Pro (primary) & Windows 10 Pro (see "Windows 10 Notes" blocks)
 
@@ -327,19 +327,37 @@ Ensure **Users** group has *Read & execute*.
 
 ```bat
 @echo off
-rem —— Launch GSPro+ ——
-start "" "C:\Program Files\GSPro\GSPro.exe"
-rem —— Wait 15 s ——
-timeout /t 15 /nobreak >nul
-rem —— Launch kiosk overlay ——
+rem —— Path to GSPro+ ——
+set GAME="C:\Program Files\GSPro\GSPro.exe"
+
+rem —— Launch the kiosk overlay once ——
 start "" "C:\GolfLabsKiosk\GolfLabsKiosk.exe"
-rem —— Keep script alive ——
+
 :loop
- timeout /t 3600 >nul
- goto loop
+rem —— Verify GSPro is installed ——
+if not exist %GAME% (
+   echo ** GSPro not found! **
+   timeout /t 5 >nul
+   goto loop
+)
+
+rem —— Start GSPro+ ——
+start "" %GAME%
+echo GSPro launched.  Waiting for it to exit…
+
+:: Wait until the process terminates
+:check
+tasklist /fi "imagename eq GSPro.exe" | find /i "GSPro.exe" >nul
+if errorlevel 1 goto exited
+timeout /t 3 >nul
+goto check
+
+:exited
+echo GSPro closed at %date% %time% — relaunching…
+goto loop
 ```
 
-> **Alternative game**  Replace the first *start* line accordingly.
+> This watchdog loop relaunches GSPro+ automatically if a player quits the game or if it crashes, ensuring the simulator is always ready for the next booking.  The kiosk overlay remains running on top the entire time.
 
 ---
 ## 4  Enable Auto-Logon
