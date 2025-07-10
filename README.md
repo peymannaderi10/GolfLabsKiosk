@@ -279,3 +279,145 @@ Through admin mode, you can:
 - **Development Mode**: Windowed mode on primary display only, shortcuts enabled for debugging
 
 *Golf Labs Kiosk - Powering seamless automated golf experiences* 
+
+# Golf-Sim Kiosk Setup Guide
+
+> **Applies to:** Windows 11 Pro (primary) & Windows 10 Pro (see "Windows 10 Notes" blocks)
+
+This guide converts a fresh Windows PC into a locked-down golf-sim kiosk that
+
+* auto-logs into a non-admin **kiosk** user
+* keeps **GSPro+** running full-screen in the background
+* launches the Electron **GolfLabsKiosk** overlay to manage bookings & door control
+* blocks all escape hatches (Task Manager, Alt + Tab, etc.)
+
+---
+## 0  Preparation Checklist
+
+1. Sign in with an **administrator** account (RDP or local).
+2. Verify GSPro+ launches: `C:\Program Files\GSPro\GSPro.exe`.
+3. Copy/installer for `GolfLabsKiosk.exe` ready.
+4. Choose a folder (`C:\GolfLabsKiosk\`).
+
+> **Windows 10 Note**  All steps work the same on Windows 10 Pro. If you are on **Windows 10 Home** you must first install the Group-Policy Editor (see Appendix A) or apply the equivalent registry files provided in `policy-exports/`.
+
+---
+## 1  Create the Kiosk User
+
+Settings → **Accounts → Other users**
+
+1. Add → "I don’t have this person’s sign-in information" → "Add a user without a Microsoft account".
+2. Username **kiosk**, secure password.
+3. Change account type → **Standard user**.
+
+> **Windows 10 Note**  UI path is *Settings → Accounts → Family & other users*.
+
+---
+## 2  Install / Copy the Kiosk App
+
+```powershell
+mkdir C:\GolfLabsKiosk
+copy GolfLabsKiosk.exe C:\GolfLabsKiosk\
+copy config.json       C:\GolfLabsKiosk\
+```
+Ensure **Users** group has *Read & execute*.
+
+---
+## 3  Create `start.bat`
+
+```bat
+@echo off
+rem —— Launch GSPro+ ——
+start "" "C:\Program Files\GSPro\GSPro.exe"
+rem —— Wait 15 s ——
+timeout /t 15 /nobreak >nul
+rem —— Launch kiosk overlay ——
+start "" "C:\GolfLabsKiosk\GolfLabsKiosk.exe"
+rem —— Keep script alive ——
+:loop
+ timeout /t 3600 >nul
+ goto loop
+```
+
+> **Alternative game**  Replace the first *start* line accordingly.
+
+---
+## 4  Enable Auto-Logon
+
+Run `netplwiz`, un-tick *Users must enter a user name…*, pick **kiosk**, supply password.
+
+> **Windows 10 Note**  Identical.
+
+---
+## 5  Replace Explorer Shell
+
+Log in as **kiosk**, open **regedit** →
+`HKCU\Software\Microsoft\Windows NT\CurrentVersion\Winlogon` → create `Shell` (String) = `C:\GolfLabsKiosk\start.bat`.
+
+---
+## 6  Group-Policy Lock-down
+
+Launch **gpedit.msc** as **Admin** and apply the table below.
+Users of Windows 10 Pro follow the same paths; Windows 10 Home: import `*.reg` files from `policy-exports/`.
+
+| Scope | Policy Path | Setting | State |
+|-------|-------------|---------|-------|
+| User Config | System | Disable Task Manager | Enabled |
+| … | … | (see full table in guide body) | |
+
+*(Full list reproduced in the main guide body above.)*
+
+Afterwards `gpupdate /force` or reboot.
+
+---
+## 7  Hotkey Suppression (Electron)
+
+Add to `main.js` (after `app.whenReady()`):
+```js
+if (!isDev) {
+  const blocked = ['F11','F12','Control+Shift+I','Alt+F4'];
+  blocked.forEach(accel => globalShortcut.register(accel, () => {}));
+}
+```
+
+---
+## 8  Power & Update Settings
+
+* **Screen & sleep:** *Never* on AC.
+* Disable multi-finger gestures if touchpad present.
+* Windows Update → schedule off-hours restarts.
+
+> **Windows 10 Note**  Settings → *System → Power & sleep*.
+
+---
+## 9  Test Workflow
+
+1. Reboot.
+2. Auto-login → GSPro+ → overlay.
+3. Verify hotkeys blocked and overlay logic works.
+
+---
+## 10  Maintenance
+
+Admin may RDP/sign-in, update files in `C:\GolfLabsKiosk`, reboot.
+
+---
+## 11  Emergency Rollback
+
+1. Power-cycle.
+2. During *Signing in…* hold **Shift** → *Restart* → *Troubleshoot → Startup Settings → Safe Mode with Networking*.
+3. Log in as Admin, delete `Shell` value, reboot.
+
+---
+## Appendix A  Installing GPEdit on Windows 10 Home
+
+If you are running Windows 10 Home:
+
+1. Open PowerShell **as administrator**.
+2. Run:
+   ```powershell
+   dism /online /Add-Capability /CapabilityName:Rsat.GroupPolicy.Management.Tools~~~~0.0.1.0
+   ```
+3. Reboot. **gpedit.msc** is now available.
+
+Alternatively, import the provided `*.reg` files in `policy-exports/` to enforce identical lockdown settings. 
