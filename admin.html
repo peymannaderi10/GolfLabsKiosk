@@ -362,6 +362,25 @@
             transform: translateY(0);
         }
 
+        .password-exit {
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            color: #ccc;
+            padding: 12px 24px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            width: 100%;
+            margin-top: 10px;
+            transition: all 0.2s ease;
+        }
+
+        .password-exit:hover {
+            background: rgba(255, 255, 255, 0.2);
+            color: white;
+        }
+
         .password-error {
             background: rgba(220, 53, 69, 0.1);
             border: 1px solid rgba(220, 53, 69, 0.3);
@@ -448,6 +467,9 @@
                 >
                 <button type="submit" class="password-submit">
                     Unlock Admin Panel
+                </button>
+                <button type="button" class="password-exit" onclick="exitAdmin()">
+                    Exit Admin Panel
                 </button>
             </form>
             <div id="password-error" class="password-error" style="display: none;"></div>
