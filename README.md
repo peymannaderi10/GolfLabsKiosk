@@ -325,6 +325,21 @@ Ensure **Users** group has *Read & execute*.
 ---
 ## 3  Create `start.bat`
 
+### Simple version:
+```bat
+@echo off
+:: ---------- launch WGT Golf ----------
+start "" "D:\SteamLibrary\steamapps\common\WGT Golf\golf.exe"
+:: ---------- give WGT Golf 15 s to settle (adjust if needed) ----------
+timeout /t 15 /nobreak >nul
+:: ---------- launch the kiosk overlay (always-on-top full-screen) ----------
+start "" "C:\GolfLabsKiosk\Golf Labs Kiosk\Golf Labs Kiosk.exe"
+:: ---------- keep the script alive so shell never exits ----------
+:loop
+timeout /t 3600 >nul
+goto loop
+```
+### Complex version:
 ```bat
 @echo off
 rem —— Path to GSPro+ ——
