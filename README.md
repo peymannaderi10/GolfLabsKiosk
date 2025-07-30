@@ -323,56 +323,59 @@ copy config.json       C:\GolfLabsKiosk\
 Ensure **Users** group has *Read & execute*.
 
 ---
-## 3  Create `start.bat`
+## 3  Create the Launcher and Watchdog Scripts
 
-### Simple version:
-```bat
-@echo off
-:: ---------- launch WGT Golf ----------
-start "" "D:\SteamLibrary\steamapps\common\WGT Golf\golf.exe"
-:: ---------- give WGT Golf 15 s to settle (adjust if needed) ----------
-timeout /t 15 /nobreak >nul
-:: ---------- launch the kiosk overlay (always-on-top full-screen) ----------
-start "" "C:\GolfLabsKiosk\Golf Labs Kiosk\Golf Labs Kiosk.exe"
-:: ---------- keep the script alive so shell never exits ----------
-:loop
-timeout /t 3600 >nul
-goto loop
+### launch.vbs (hides the console window)
+Save this as `C:\GolfLabsKiosk\launch.vbs`:
+
+```vb
+Set WshShell = CreateObject("WScript.Shell")
+WshShell.Run "C:\GolfLabsKiosk\start.bat", 0, False
 ```
-### Complex version:
+
+### start.bat (overlay + GSPro watchdog)
+Save this as `C:\GolfLabsKiosk\start.bat`:
+
 ```bat
 @echo off
-rem —— Path to GSPro+ ——
-set GAME="C:\Program Files\GSPro\GSPro.exe"
-
-rem —— Launch the kiosk overlay once ——
+rem —————————————————————————————————————————————
+rem Launch the kiosk overlay immediately (non-blocking)
 start "" "C:\GolfLabsKiosk\GolfLabsKiosk.exe"
 
-:loop
-rem —— Verify GSPro is installed ——
-if not exist %GAME% (
-   echo ** GSPro not found! **
-   timeout /t 5 >nul
-   goto loop
-)
+rem Give overlay a moment to initialize
+timeout /t 3 /nobreak >nul
 
-rem —— Start GSPro+ ——
-start "" %GAME%
-echo GSPro launched.  Waiting for it to exit…
+rem —————————————————————————————————————————————
+rem Watchdog Loop
+:watch_loop
 
-:: Wait until the process terminates
-:check
-tasklist /fi "imagename eq GSPro.exe" | find /i "GSPro.exe" >nul
-if errorlevel 1 goto exited
-timeout /t 3 >nul
-goto check
+   rem — Check kiosk overlay; restart if needed
+   tasklist /fi "imagename eq GolfLabsKiosk.exe" | find /i "GolfLabsKiosk.exe" >nul
+   if errorlevel 1 (
+       echo [%time%] Overlay exited — relaunching...
+       start "" "C:\GolfLabsKiosk\GolfLabsKiosk.exe"
+   )
 
-:exited
-echo GSPro closed at %date% %time% — relaunching…
-goto loop
+   rem — Check GSPro; launch or restart if needed
+   tasklist /fi "imagename eq GSPro.exe" | find /i "GSPro.exe" >nul
+   if errorlevel 1 (
+       echo [%time%] GSPro not running — launching...
+       start "" "C:\Program Files\GSPro\GSPro.exe"
+   )
+
+   rem — Pause briefly before repeating
+   timeout /t 5 /nobreak >nul
+goto watch_loop
 ```
 
-> This watchdog loop relaunches GSPro+ automatically if a player quits the game or if it crashes, ensuring the simulator is always ready for the next booking.  The kiosk overlay remains running on top the entire time.
+**What this does:**
+
+1. Starts the kiosk overlay on top.
+2. Enters a loop every 5 seconds:
+   • If the overlay isn't running, it restarts it.
+   • If GSPro isn't running, it launches it.
+
+> This watchdog approach ensures both the kiosk overlay and GSPro remain running continuously, automatically restarting either component if it crashes or is closed.
 
 ---
 ## 4  Enable Auto-Logon
@@ -384,8 +387,16 @@ Run `netplwiz`, un-tick *Users must enter a user name…*, pick **kiosk**, suppl
 ---
 ## 5  Replace Explorer Shell
 
-Log in as **kiosk**, open **regedit** →
-`HKCU\Software\Microsoft\Windows NT\CurrentVersion\Winlogon` → create `Shell` (String) = `C:\GolfLabsKiosk\start.bat`.
+Log in as **kiosk**, run **regedit** →
+`HKCU\Software\Microsoft\Windows NT\CurrentVersion\Winlogon` →
+
+1. Delete the existing `Shell` entry (if present)
+2. Create new String `Shell` = 
+   ```
+   wscript.exe "C:\GolfLabsKiosk\launch.vbs"
+   ```
+
+Now Windows will run the VBScript (which hides the console) at login.
 
 ---
 ## 6  Group-Policy Lock-down
