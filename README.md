@@ -407,18 +407,6 @@ Users of Windows 10 Pro follow the same paths; Windows 10 Home: import `*.reg` f
 User Configuration → Administrative Templates → System → Ctrl+Alt+Del Options
 <img width="645" height="112" alt="image" src="https://github.com/user-attachments/assets/bb374f52-2424-49f9-8d29-ae2f71416188" />
 
-User Configuration → Administrative Templates → Start Menu and Taskbar → Remove Run menu
-<img width="680" height="98" alt="image" src="https://github.com/user-attachments/assets/c1cbeae1-9ca0-4528-96fd-bbef09d26541" />
-
-User Configuration → Administrative Templates → System → Prevent access to registry editing tools
-<img width="664" height="71" alt="image" src="https://github.com/user-attachments/assets/cdd61af9-4146-468f-981b-1fe90da9dc89" />
-
-User Configuration → Administrative Templates → Windows Components → File Explorer → Remove File Explorer’s default context menu
-<img width="671" height="87" alt="image" src="https://github.com/user-attachments/assets/c4fefe35-93d7-4c29-b9d0-fd47bdf68d7d" />
-
-User Configuration → Administrative Templates → Windows Components → File Explorer → Turn off Windows + X hotkeys
-<img width="669" height="84" alt="image" src="https://github.com/user-attachments/assets/b5188e77-3c59-4032-97cc-51e89020c4d3" />
-
 Afterwards `gpupdate /force` or reboot.
 
 ---
