@@ -94,6 +94,7 @@ function createWindow(display, isPrimary = false) {
     resizable: isDev,
     transparent: true,
     frame: isDev,
+    closable: isDev, // Only allow closing in dev mode
     show: false,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
@@ -103,7 +104,16 @@ function createWindow(display, isPrimary = false) {
   });
 
   window.loadFile('index.html');
-  
+
+  // Prevent window from closing in kiosk mode (handles Alt+F4 and other close attempts)
+  if (!isDev) {
+    window.on('close', (event) => {
+      console.log('Window close attempted - preventing in kiosk mode');
+      event.preventDefault();
+      return false;
+    });
+  }
+
   window.once('ready-to-show', () => {
     window.show();
     if (!isDev) {
@@ -424,11 +434,29 @@ ipcMain.handle('get-initial-bookings', () => {
 
 // Admin mode IPC handlers
 ipcMain.handle('admin-restart-app', () => {
+    // Force close all windows before restarting
+    if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.destroy();
+    }
+    additionalWindows.forEach(window => {
+        if (!window.isDestroyed()) {
+            window.destroy();
+        }
+    });
     app.relaunch();
     app.exit(0);
 });
 
 ipcMain.handle('admin-close-app', () => {
+    // Force close all windows before quitting
+    if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.destroy();
+    }
+    additionalWindows.forEach(window => {
+        if (!window.isDestroyed()) {
+            window.destroy();
+        }
+    });
     app.quit();
 });
 
