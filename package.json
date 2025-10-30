@@ -7,7 +7,7 @@
     "start": "electron .",
     "dev": "electron . --dev",
     "dist": "electron-builder",
-    "package": "powershell -Command \"$date = Get-Date -Format 'yyyy-MM-dd'; $zipName = \\\"GolfLabsKiosk-v1.0.0-$date.zip\\\"; if (Test-Path $zipName) { Remove-Item $zipName }; Compress-Archive -Path 'dist/Golf Labs Kiosk Setup 1.0.0.exe', 'README.md', 'config.example.json' -DestinationPath $zipName; Write-Host \\\"Distribution package created: $zipName\\\"\""
+    "package": "powershell -Command \"$packageJson = Get-Content package.json | ConvertFrom-Json; $version = $packageJson.version; $date = Get-Date -Format 'yyyy-MM-dd'; $zipName = \\\"GolfLabsKiosk-v$version-$date.zip\\\"; $exeName = \\\"Golf Labs Kiosk Setup $version.exe\\\"; if (Test-Path $zipName) { Remove-Item $zipName }; Compress-Archive -Path \\\"dist/$exeName\\\", 'README.md', 'config.example.json' -DestinationPath $zipName; Write-Host \\\"Distribution package created: $zipName\\\"\""
   },
   "keywords": [
     "golf",
