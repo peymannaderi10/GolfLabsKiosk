@@ -197,7 +197,7 @@ function startHeartbeat() {
         clearInterval(heartbeatInterval);
     }
     sendHeartbeat();
-    const HEARTBEAT_INTERVAL_MS = 5 * 60 * 1000;
+    const HEARTBEAT_INTERVAL_MS = 60 * 1000; // 60 seconds - more frequent for accurate dashboard status
     heartbeatInterval = setInterval(sendHeartbeat, HEARTBEAT_INTERVAL_MS);
     console.log(`Heartbeat service started. Checking in every ${HEARTBEAT_INTERVAL_MS / 1000}s.`);
 }
