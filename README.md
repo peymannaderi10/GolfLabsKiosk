@@ -282,85 +282,120 @@ Through admin mode, you can:
 
 # Golf-Sim Kiosk Setup Guide
 
-> **Applies to:** Windows 11 Pro (primary) & Windows 10 Pro (see "Windows 10 Notes" blocks)
+> **Applies to:** Windows 11 (Home/Pro) & Windows 10 (Home/Pro)
 
-This guide converts a fresh Windows PC into a locked-down golf-sim kiosk that
+This guide converts a Windows PC into a locked-down golf-sim kiosk that:
 
-* auto-logs into a non-admin **kiosk** user
-* keeps **GSPro+** running full-screen in the background
-* launches the Electron **GolfLabsKiosk** overlay to manage bookings & door control
-* blocks all escape hatches (Task Manager, Alt + Tab, etc.)
+* Auto-logs into a Windows user account
+* Keeps your simulator software (GSPro, Uneekor, etc.) running in the background
+* Launches the Electron **Golf Labs Kiosk** overlay to manage bookings & door control
+* Blocks escape hatches (Task Manager, Alt+Tab, etc.)
 
 ---
+
+## Setup Modes
+
+Choose the setup mode that fits your needs:
+
+| Mode | Description | Use Case |
+|------|-------------|----------|
+| **Single-User Mode** | Uses existing Windows user, keeps Windows Explorer running in background | Development, testing, staff access needed |
+| **Full Kiosk Mode** | Dedicated kiosk user, replaces Windows shell entirely | Production, maximum lockdown |
+
+**This guide covers Single-User Mode.** For Full Kiosk Mode, see [Appendix B](#appendix-b--full-kiosk-mode-separate-user).
+
+---
+
 ## 0  Preparation Checklist
 
-1. Sign in with an **administrator** account (RDP or local).
-2. Verify GSPro+ launches: `C:\Program Files\GSPro\GSPro.exe`.
-3. Copy/installer for `GolfLabsKiosk.exe` ready.
-4. Choose a folder (`C:\GolfLabsKiosk\`).
-
-> **Windows 10 Note**  All steps work the same on Windows 10 Pro. If you are on **Windows 10 Home** you must first install the Group-Policy Editor (see Appendix A) or apply the equivalent registry files provided in `policy-exports/`.
+1. Sign in with an **administrator** account
+2. Verify your simulator software launches (e.g., `C:\Uneekor\Launcher\UneekorLauncher.exe`)
+3. Download the Golf Labs Kiosk installer
+4. Have your `config.json` ready with correct bay/location IDs
 
 ---
-## 1  Create the Kiosk User
 
-Settings → **Accounts → Other users**
+## 1  Install the Kiosk App
 
-1. Add → "I don’t have this person’s sign-in information" → "Add a user without a Microsoft account".
-2. Username **kiosk**, secure password.
-3. Change account type → **Standard user**.
+Run the Golf Labs Kiosk installer and install to:
+```
+C:\GolfLabsKiosk\
+```
 
-> **Windows 10 Note**  UI path is *Settings → Accounts → Family & other users*.
+The installer will create:
+```
+C:\GolfLabsKiosk\Golf Labs Kiosk\
+├── Golf Labs Kiosk.exe
+└── (other app files)
+```
 
 ---
-## 2  Install / Copy the Kiosk App
+
+## 2  Configure the Kiosk
+
+The app looks for `config.json` in your **AppData** folder, not the installation folder.
+
+### Copy your config to the correct location:
 
 ```powershell
-mkdir C:\GolfLabsKiosk
-copy GolfLabsKiosk.exe C:\GolfLabsKiosk\
-copy config.json       C:\GolfLabsKiosk\
+# Create the config directory
+New-Item -ItemType Directory -Path "$env:APPDATA\Golf Labs Kiosk" -Force
+
+# Copy your config (update the source path as needed)
+Copy-Item "C:\path\to\your\config.json" "$env:APPDATA\Golf Labs Kiosk\config.json"
 ```
-Ensure **Users** group has *Read & execute*.
+
+### Config file location:
+```
+C:\Users\<YourUsername>\AppData\Roaming\Golf Labs Kiosk\config.json
+```
+
+### Example config.json:
+```json
+{
+    "bayId": "your-bay-uuid-here",
+    "locationId": "your-location-uuid-here",
+    "apiBaseUrl": "https://golflabs-us-api.onrender.com",
+    "timezone": "America/New_York",
+    "shellyIP": "10.0.0.157"
+}
+```
 
 ---
-## 3  Create the Launcher and Watchdog Scripts
 
-### launch.vbs (hides the console window)
-Save this as `C:\GolfLabsKiosk\launch.vbs`:
+## 3  Create the Watchdog Scripts
+
+These scripts monitor and restart the kiosk app and simulator if they crash.
+
+### watchdog.vbs
+Save as `C:\GolfLabsKiosk\Golf Labs Kiosk\watchdog.vbs`:
 
 ```vb
 Set WshShell = CreateObject("WScript.Shell")
-WshShell.Run "C:\GolfLabsKiosk\start.bat", 0, False
+WshShell.Run Chr(34) & "C:\GolfLabsKiosk\Golf Labs Kiosk\watchdog.bat" & Chr(34), 0, False
 ```
 
-### start.bat (overlay + GSPro watchdog)
-Save this as `C:\GolfLabsKiosk\start.bat`:
+### watchdog.bat
+Save as `C:\GolfLabsKiosk\Golf Labs Kiosk\watchdog.bat`:
 
 ```bat
 @echo off
-rem —————————————————————————————————————————————
-rem Launch the kiosk overlay immediately (non-blocking)
-start "" "C:\GolfLabsKiosk\GolfLabsKiosk.exe"
+rem Wait for initial apps to start
+timeout /t 10 /nobreak >nul
 
-rem Give overlay a moment to initialize
-timeout /t 3 /nobreak >nul
-
-rem —————————————————————————————————————————————
-rem Watchdog Loop
 :watch_loop
-
    rem — Check kiosk overlay; restart if needed
-   tasklist /fi "imagename eq GolfLabsKiosk.exe" | find /i "GolfLabsKiosk.exe" >nul
+   tasklist /fi "imagename eq Golf Labs Kiosk.exe" | find /i "Golf Labs Kiosk.exe" >nul
    if errorlevel 1 (
        echo [%time%] Overlay exited — relaunching...
-       start "" "C:\GolfLabsKiosk\GolfLabsKiosk.exe"
+       start "" "C:\GolfLabsKiosk\Golf Labs Kiosk\Golf Labs Kiosk.exe"
    )
 
-   rem — Check GSPro; launch or restart if needed
-   tasklist /fi "imagename eq GSPro.exe" | find /i "GSPro.exe" >nul
+   rem — Check simulator; launch or restart if needed
+   tasklist /fi "imagename eq UneekorLauncher.exe" | find /i "UneekorLauncher.exe" >nul
    if errorlevel 1 (
-       echo [%time%] GSPro not running — launching...
-       start "" "C:\Program Files\GSPro\GSPro.exe"
+       echo [%time%] Simulator not running — launching...
+       start "" "C:\Uneekor\Launcher\UneekorLauncher.exe"
    )
 
    rem — Pause briefly before repeating
@@ -368,96 +403,204 @@ rem Watchdog Loop
 goto watch_loop
 ```
 
-**What this does:**
-
-1. Starts the kiosk overlay on top.
-2. Enters a loop every 5 seconds:
-   • If the overlay isn't running, it restarts it.
-   • If GSPro isn't running, it launches it.
-
-> This watchdog approach ensures both the kiosk overlay and GSPro remain running continuously, automatically restarting either component if it crashes or is closed.
+> **Note:** Modify the simulator path and executable name to match your setup (GSPro, Uneekor, etc.)
 
 ---
-## 4  Enable Auto-Logon
 
-Run `netplwiz`, un-tick *Users must enter a user name…*, pick **kiosk**, supply password.
+## 4  Create Startup Shortcuts
 
-> **Windows 10 Note**  Identical.
+Run this in **regular PowerShell** (not admin) to create startup shortcuts for instant launch:
 
----
-## 5  Replace Explorer Shell
+```powershell
+$WshShell = New-Object -ComObject WScript.Shell
 
-Log in as **kiosk**, run **regedit** →
-`HKCU\Software\Microsoft\Windows NT\CurrentVersion\Winlogon` →
+# 1. Kiosk App - launches instantly on boot
+$Kiosk = $WshShell.CreateShortcut("$env:APPDATA\Microsoft\Windows\Start Menu\Programs\Startup\GolfLabsKiosk.lnk")
+$Kiosk.TargetPath = "C:\GolfLabsKiosk\Golf Labs Kiosk\Golf Labs Kiosk.exe"
+$Kiosk.WorkingDirectory = "C:\GolfLabsKiosk\Golf Labs Kiosk"
+$Kiosk.Save()
 
-1. Delete the existing `Shell` entry (if present)
-2. Create new String `Shell` = 
-   ```
-   wscript.exe "C:\GolfLabsKiosk\launch.vbs"
-   ```
+# 2. Simulator - launches instantly on boot
+$Simulator = $WshShell.CreateShortcut("$env:APPDATA\Microsoft\Windows\Start Menu\Programs\Startup\Simulator.lnk")
+$Simulator.TargetPath = "C:\Uneekor\Launcher\UneekorLauncher.exe"
+$Simulator.WorkingDirectory = "C:\Uneekor\Launcher"
+$Simulator.Save()
 
-Now Windows will run the VBScript (which hides the console) at login.
+# 3. Watchdog - monitors and restarts crashed apps
+$Watchdog = $WshShell.CreateShortcut("$env:APPDATA\Microsoft\Windows\Start Menu\Programs\Startup\KioskWatchdog.lnk")
+$Watchdog.TargetPath = "wscript.exe"
+$Watchdog.Arguments = '"C:\GolfLabsKiosk\Golf Labs Kiosk\watchdog.vbs"'
+$Watchdog.WorkingDirectory = "C:\GolfLabsKiosk\Golf Labs Kiosk"
+$Watchdog.Save()
 
----
-## 6  Group-Policy Lock-down
+Write-Host "Startup shortcuts created!" -ForegroundColor Green
+```
 
-Launch **gpedit.msc** as **Admin** and apply the table below.
-Users of Windows 10 Pro follow the same paths; Windows 10 Home: import `*.reg` files from `policy-exports/`.
-### SET ALL BELOW TO ENABLED
-User Configuration → Administrative Templates → System → Ctrl+Alt+Del Options
-<img width="645" height="112" alt="image" src="https://github.com/user-attachments/assets/bb374f52-2424-49f9-8d29-ae2f71416188" />
-
-Afterwards `gpupdate /force` or reboot.
-
----
-## 7  Hotkey Suppression (Electron)
-
-Add to `main.js` (after `app.whenReady()`):
-```js
-if (!isDev) {
-  const blocked = ['F11','F12','Control+Shift+I','Alt+F4'];
-  blocked.forEach(accel => globalShortcut.register(accel, () => {}));
-}
+### Verify shortcuts:
+```powershell
+Get-ChildItem "$env:APPDATA\Microsoft\Windows\Start Menu\Programs\Startup"
 ```
 
 ---
-## 8  Power & Update Settings
 
-* **Screen & sleep:** *Never* on AC.
-* Disable multi-finger gestures if touchpad present.
-* Windows Update → schedule off-hours restarts.
+## 5  Enable Auto-Logon
 
-> **Windows 10 Note**  Settings → *System → Power & sleep*.
+### Step 5a: Enable the auto-logon checkbox (Windows 10/11)
+
+Run in **PowerShell as Admin**:
+```powershell
+reg add "HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\PasswordLess\Device" /v DevicePasswordLessBuildVersion /t REG_DWORD /d 0 /f
+```
+
+### Step 5b: Configure auto-logon
+
+1. Run `netplwiz`
+2. Uncheck "Users must enter a user name and password to use this computer"
+3. Click **Apply**
+4. Enter your password twice when prompted
+5. Click **OK**
 
 ---
-## 9  Test Workflow
 
-1. Reboot.
-2. Auto-login → GSPro+ → overlay.
-3. Verify hotkeys blocked and overlay logic works.
+## 6  System Lockdown
+
+### Option A: Registry Method (Works on Windows Home & Pro)
+
+Run in **PowerShell as Admin**:
+
+```powershell
+# Create registry paths
+New-Item -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Policies\System" -Force | Out-Null
+New-Item -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Policies\Explorer" -Force | Out-Null
+
+# Disable Task Manager
+Set-ItemProperty -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Policies\System" -Name "DisableTaskMgr" -Value 1 -Type DWord
+
+# Disable Lock Workstation
+Set-ItemProperty -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Policies\System" -Name "DisableLockWorkstation" -Value 1 -Type DWord
+
+# Disable Change Password
+Set-ItemProperty -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Policies\System" -Name "DisableChangePassword" -Value 1 -Type DWord
+
+# Disable Sign Out
+Set-ItemProperty -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Policies\Explorer" -Name "NoLogoff" -Value 1 -Type DWord
+
+Write-Host "Lockdown applied!" -ForegroundColor Green
+```
+
+### Option B: Group Policy Editor (Windows Pro only, or Home with gpedit enabled)
+
+1. Run `gpedit.msc` as Admin
+2. Navigate to: **User Configuration → Administrative Templates → System → Ctrl+Alt+Del Options**
+3. Enable all options to disable Task Manager, Lock, Change Password, Log Off
+
+### To undo lockdown later:
+
+```powershell
+Remove-ItemProperty -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Policies\System" -Name "DisableTaskMgr" -ErrorAction SilentlyContinue
+Remove-ItemProperty -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Policies\System" -Name "DisableLockWorkstation" -ErrorAction SilentlyContinue
+Remove-ItemProperty -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Policies\System" -Name "DisableChangePassword" -ErrorAction SilentlyContinue
+Remove-ItemProperty -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Policies\Explorer" -Name "NoLogoff" -ErrorAction SilentlyContinue
+Write-Host "Lockdown removed." -ForegroundColor Yellow
+```
 
 ---
+
+## 7  Power & Update Settings
+
+* **Screen & sleep:** Set to *Never* on AC power
+* **Windows Update:** Schedule restarts for off-hours
+* Disable touchpad gestures if applicable
+
+Settings → System → Power & battery → Screen and sleep
+
+---
+
+## 8  Test Workflow
+
+1. Reboot the PC
+2. Verify auto-login works
+3. Verify kiosk overlay launches instantly
+4. Verify simulator launches
+5. Test `Ctrl+Shift+Esc` - Task Manager should be blocked
+6. Test admin mode with **PgUp + PgDn** key combination
+
+---
+
+## 9  Final Folder Structure
+
+```
+C:\GolfLabsKiosk\Golf Labs Kiosk\
+├── Golf Labs Kiosk.exe    ← Main application
+├── watchdog.vbs           ← Hidden script launcher
+├── watchdog.bat           ← Watchdog loop
+└── (other installer files)
+
+C:\Users\<You>\AppData\Roaming\Golf Labs Kiosk\
+└── config.json            ← Configuration file
+
+C:\Users\<You>\AppData\Roaming\Microsoft\Windows\Start Menu\Programs\Startup\
+├── GolfLabsKiosk.lnk      ← Instant app launch
+├── Simulator.lnk          ← Instant simulator launch
+└── KioskWatchdog.lnk      ← Background watchdog
+```
+
+---
+
 ## 10  Maintenance
 
-Admin may RDP/sign-in, update files in `C:\GolfLabsKiosk`, reboot.
+* Access Windows normally via admin mode (PgUp + PgDn)
+* Update config at `%APPDATA%\Golf Labs Kiosk\config.json`
+* RDP access available for remote administration
 
 ---
-## 11  Emergency Rollback
 
-1. Power-cycle.
-2. During *Signing in…* hold **Shift** → *Restart* → *Troubleshoot → Startup Settings → Safe Mode with Networking*.
-3. Log in as Admin, delete `Shell` value, reboot.
+## 11  Emergency Recovery
+
+If you get locked out:
+
+1. Reboot and hold **Shift** during "Signing in..." screen
+2. Select *Restart* → *Troubleshoot* → *Startup Settings* → *Safe Mode*
+3. Log in and run the "undo lockdown" PowerShell commands from Step 6
 
 ---
-## Appendix A  Installing GPEdit on Windows 10 Home
 
-If you are running Windows 10 Home:
+## Appendix A  Enable GPEdit on Windows 11/10 Home
 
-1. Open PowerShell **as administrator**.
-2. Run:
-   ```powershell
-   dism /online /Add-Capability /CapabilityName:Rsat.GroupPolicy.Management.Tools~~~~0.0.1.0
-   ```
-3. Reboot. **gpedit.msc** is now available.
+Run in **PowerShell as Admin**:
 
-Alternatively, import the provided `*.reg` files in `policy-exports/` to enforce identical lockdown settings. 
+```powershell
+Get-ChildItem -Path "$env:SystemRoot\servicing\Packages\Microsoft-Windows-GroupPolicy-ClientExtensions-Package~*.mum" | ForEach-Object { dism /online /norestart /add-package:"$($_.FullName)" }
+Get-ChildItem -Path "$env:SystemRoot\servicing\Packages\Microsoft-Windows-GroupPolicy-ClientTools-Package~*.mum" | ForEach-Object { dism /online /norestart /add-package:"$($_.FullName)" }
+```
+
+Restart your PC. `gpedit.msc` will now be available.
+
+> **Note:** Some older package versions may show errors - this is normal as long as the latest versions succeed.
+
+---
+
+## Appendix B  Full Kiosk Mode (Separate User)
+
+For maximum lockdown in production environments, you can create a dedicated kiosk user and replace the Windows shell entirely.
+
+### Additional Steps for Full Kiosk Mode:
+
+**B1. Create Kiosk User:**
+Settings → Accounts → Other users → Add user without Microsoft account
+- Username: `kiosk`
+- Account type: Standard user
+
+**B2. Replace Explorer Shell:**
+Log in as kiosk user, run `regedit`:
+`HKCU\Software\Microsoft\Windows NT\CurrentVersion\Winlogon`
+
+Create String value `Shell`:
+```
+wscript.exe "C:\GolfLabsKiosk\Golf Labs Kiosk\watchdog.vbs"
+```
+
+**B3. Emergency Rollback:**
+Boot to Safe Mode, log in as Admin, delete the `Shell` registry value.
+
+> **Warning:** Full Kiosk Mode removes access to Windows desktop, taskbar, and Start menu entirely. Only use in production after thorough testing. 
