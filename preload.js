@@ -7,6 +7,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   sendHeartbeat: (bayId) => ipcRenderer.invoke('send-heartbeat', bayId),
   logAccess: (logData) => ipcRenderer.invoke('log-access', logData),
   setIgnoreMouseEvents: (ignore) => ipcRenderer.invoke('set-ignore-mouse-events', ignore),
+  bringToForeground: () => ipcRenderer.invoke('bring-to-foreground'),
   
   // Manual Unlock
   getManualUnlockState: () => ipcRenderer.invoke('admin-get-manual-unlock-state'),

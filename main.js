@@ -95,6 +95,8 @@ function createWindow(display, isPrimary = false) {
     transparent: true,
     frame: isDev,
     closable: isDev, // Only allow closing in dev mode
+    minimizable: isDev, // Prevent minimizing in kiosk mode
+    skipTaskbar: !isDev, // Hide from taskbar in kiosk mode to prevent minimize via taskbar click
     show: false,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
@@ -111,6 +113,22 @@ function createWindow(display, isPrimary = false) {
       console.log('Window close attempted - preventing in kiosk mode');
       event.preventDefault();
       return false;
+    });
+
+    // If somehow minimized (shouldn't happen with minimizable: false), restore immediately
+    window.on('minimize', () => {
+      console.log('Window minimize detected - restoring immediately in kiosk mode');
+      // Use setImmediate to ensure restore happens after the minimize completes
+      setImmediate(() => {
+        if (window && !window.isDestroyed()) {
+          window.restore();
+          window.show();
+          window.focus();
+          window.setFullScreen(true);
+          window.setAlwaysOnTop(true, 'screen-saver');
+          window.moveTop();
+        }
+      });
     });
   }
 
@@ -612,6 +630,34 @@ ipcMain.handle('set-ignore-mouse-events', (event, ignore) => {
     if (win) {
         win.setIgnoreMouseEvents(ignore, { forward: true });
     }
+});
+
+// Handler to bring all kiosk windows to the foreground
+// This ensures the lock screen is always visible when activated
+ipcMain.handle('bring-to-foreground', () => {
+    if (isDev) return; // Only in production mode
+    
+    const allWindows = [mainWindow, ...additionalWindows];
+    
+    allWindows.forEach(window => {
+        if (window && !window.isDestroyed()) {
+            // Restore if minimized
+            if (window.isMinimized()) {
+                window.restore();
+            }
+            
+            // Ensure fullscreen and always on top
+            window.setFullScreen(true);
+            window.setAlwaysOnTop(true, 'screen-saver');
+            
+            // Bring to front and focus
+            window.show();
+            window.focus();
+            window.moveTop();
+        }
+    });
+    
+    console.log('All kiosk windows brought to foreground');
 });
 
 ipcMain.handle('get-display-info', () => {

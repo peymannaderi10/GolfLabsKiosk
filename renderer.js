@@ -72,6 +72,10 @@ function setLockedState(isLocked, booking = null) {
         }
         currentBooking = null;
         
+        // Bring all kiosk windows to the foreground when locking
+        // This ensures the lock screen is always visible, even if another app was fullscreen
+        window.electronAPI.bringToForeground();
+        
         // Polling is removed. We now rely on the high-frequency local check and pushed updates.
         console.log(`Locking screen. Starting high-frequency local check every ${LOCAL_CHECK_INTERVAL_MS / 1000}s.`);
         localCheckInterval = setInterval(() => {
