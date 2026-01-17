@@ -3,452 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <title>Kiosk Admin Panel</title>
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
+    <link rel="stylesheet" href="admin.css">
 
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #1e1e1e 0%, #2d2d2d 100%);
-            color: #ffffff;
-            padding: 20px;
-            min-height: 100vh;
-        }
-
-        .admin-header {
-            text-align: center;
-            margin-bottom: 30px;
-            border-bottom: 1px solid #444;
-            padding-bottom: 20px;
-        }
-
-        .admin-header h1 {
-            color: #00A36C;
-            font-size: 24px;
-            font-weight: 600;
-            margin-bottom: 8px;
-        }
-
-        .admin-header p {
-            color: #aaa;
-            font-size: 14px;
-        }
-
-        .admin-section {
-            margin-bottom: 25px;
-            background: rgba(255, 255, 255, 0.05);
-            border-radius: 8px;
-            padding: 20px;
-            border: 1px solid rgba(255, 255, 255, 0.1);
-        }
-
-        .section-title {
-            font-size: 16px;
-            font-weight: 600;
-            color: #00A36C;
-            margin-bottom: 15px;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            cursor: pointer;
-            user-select: none;
-            transition: all 0.2s ease;
-            padding: 5px;
-            border-radius: 4px;
-        }
-
-        .section-title:hover {
-            background: rgba(0, 163, 108, 0.1);
-        }
-
-        .section-content {
-            transition: all 0.3s ease;
-            overflow: hidden;
-        }
-
-        .section-content.collapsed {
-            max-height: 0;
-            margin-top: 0;
-            margin-bottom: 0;
-            opacity: 0;
-        }
-
-        .section-content.expanded {
-            max-height: 1000px;
-            opacity: 1;
-        }
-
-        .collapse-icon {
-            width: 16px;
-            height: 16px;
-            fill: currentColor;
-            transition: transform 0.2s ease;
-            margin-left: auto;
-        }
-
-        .collapse-icon.collapsed {
-            transform: rotate(-90deg);
-        }
-
-        .admin-button {
-            background: linear-gradient(135deg, #00A36C, #008B5A);
-            border: none;
-            color: white;
-            padding: 12px 20px;
-            margin: 5px;
-            border-radius: 6px;
-            cursor: pointer;
-            font-size: 14px;
-            font-weight: 500;
-            transition: all 0.2s ease;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            min-width: 160px;
-            justify-content: center;
-        }
-
-        .admin-button:hover {
-            background: linear-gradient(135deg, #008B5A, #007547);
-            transform: translateY(-1px);
-            box-shadow: 0 4px 12px rgba(0, 163, 108, 0.3);
-        }
-
-        .admin-button:active {
-            transform: translateY(0);
-        }
-
-        .danger-button {
-            background: linear-gradient(135deg, #dc3545, #c82333);
-        }
-
-        .danger-button:hover {
-            background: linear-gradient(135deg, #c82333, #a71e2a);
-            box-shadow: 0 4px 12px rgba(220, 53, 69, 0.3);
-        }
-
-        .warning-button {
-            background: linear-gradient(135deg, #fd7e14, #e8690b);
-        }
-
-        .warning-button:hover {
-            background: linear-gradient(135deg, #e8690b, #d9530a);
-            box-shadow: 0 4px 12px rgba(253, 126, 20, 0.3);
-        }
-
-        .button-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-            gap: 10px;
-        }
-
-        .status-display {
-            background: rgba(0, 0, 0, 0.3);
-            border-radius: 4px;
-            padding: 10px;
-            margin-top: 15px;
-            font-family: 'Courier New', monospace;
-            font-size: 12px;
-            color: #ccc;
-            border-left: 3px solid #00A36C;
-        }
-
-        .monitor-info {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 8px 0;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-        }
-
-        .monitor-info:last-child {
-            border-bottom: none;
-        }
-
-        .icon {
-            width: 16px;
-            height: 16px;
-            fill: currentColor;
-        }
-
-        .primary-badge {
-            background: #00A36C;
-            color: white;
-            padding: 2px 8px;
-            border-radius: 12px;
-            font-size: 10px;
-            font-weight: 600;
-        }
-
-        .exit-button {
-            background: rgba(255, 255, 255, 0.1);
-            border: 1px solid rgba(255, 255, 255, 0.2);
-            color: #ccc;
-            padding: 12px 20px;
-            border-radius: 6px;
-            cursor: pointer;
-            font-size: 14px;
-            font-weight: 500;
-            width: 100%;
-            margin-top: 20px;
-            transition: all 0.2s ease;
-        }
-
-        .exit-button:hover {
-            background: rgba(255, 255, 255, 0.2);
-            color: white;
-        }
-
-        .config-grid {
-            display: grid;
-            gap: 15px;
-            margin-top: 15px;
-        }
-
-        .config-field {
-            display: flex;
-            flex-direction: column;
-            gap: 5px;
-        }
-
-        .config-field label {
-            font-size: 12px;
-            font-weight: 600;
-            color: #00A36C;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-        }
-
-        .config-field input {
-            background: rgba(255, 255, 255, 0.1);
-            border: 1px solid rgba(255, 255, 255, 0.2);
-            border-radius: 4px;
-            padding: 8px 12px;
-            color: white;
-            font-size: 14px;
-            font-family: 'Courier New', monospace;
-            transition: all 0.2s ease;
-        }
-
-        .config-field input:focus {
-            outline: none;
-            border-color: #00A36C;
-            background: rgba(255, 255, 255, 0.15);
-            box-shadow: 0 0 0 2px rgba(0, 163, 108, 0.2);
-        }
-
-        .config-field input::placeholder {
-            color: rgba(255, 255, 255, 0.5);
-        }
-
-        .config-field input:invalid {
-            border-color: #dc3545;
-        }
-
-        .config-field input:disabled {
-            background: rgba(255, 255, 255, 0.05);
-            border-color: rgba(255, 255, 255, 0.1);
-            color: rgba(255, 255, 255, 0.7);
-            cursor: not-allowed;
-        }
-
-        .config-field input:disabled::placeholder {
-            color: rgba(255, 255, 255, 0.3);
-        }
-
-        .error-message {
-            background: rgba(220, 53, 69, 0.1);
-            border: 1px solid rgba(220, 53, 69, 0.3);
-            border-radius: 4px;
-            padding: 10px;
-            margin-top: 10px;
-            color: #ff6b6b;
-            font-size: 12px;
-        }
-
-        .success-message {
-            background: rgba(0, 163, 108, 0.1);
-            border: 1px solid rgba(0, 163, 108, 0.3);
-            border-radius: 4px;
-            padding: 10px;
-            margin-top: 10px;
-            color: #00A36C;
-            font-size: 12px;
-        }
-
-        .password-overlay {
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: linear-gradient(135deg, #1e1e1e 0%, #2d2d2d 100%);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            z-index: 1000;
-        }
-
-        .password-prompt {
-            background: rgba(255, 255, 255, 0.05);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            border-radius: 12px;
-            padding: 40px;
-            text-align: center;
-            min-width: 300px;
-            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
-        }
-
-        .password-prompt h2 {
-            color: #00A36C;
-            margin-bottom: 10px;
-            font-size: 24px;
-            font-weight: 600;
-        }
-
-        .password-prompt p {
-            color: #aaa;
-            margin-bottom: 30px;
-            font-size: 14px;
-        }
-
-        .password-input {
-            width: 100%;
-            background: rgba(255, 255, 255, 0.1);
-            border: 1px solid rgba(255, 255, 255, 0.2);
-            border-radius: 6px;
-            padding: 12px 16px;
-            color: white;
-            font-size: 16px;
-            margin-bottom: 20px;
-            text-align: center;
-            font-family: inherit;
-        }
-
-        .password-input:focus {
-            outline: none;
-            border-color: #00A36C;
-            background: rgba(255, 255, 255, 0.15);
-            box-shadow: 0 0 0 2px rgba(0, 163, 108, 0.2);
-        }
-
-        .password-input::placeholder {
-            color: rgba(255, 255, 255, 0.5);
-        }
-
-        .password-submit {
-            background: linear-gradient(135deg, #00A36C, #008B5A);
-            border: none;
-            color: white;
-            padding: 12px 24px;
-            border-radius: 6px;
-            cursor: pointer;
-            font-size: 14px;
-            font-weight: 500;
-            width: 100%;
-            transition: all 0.2s ease;
-        }
-
-        .password-submit:hover {
-            background: linear-gradient(135deg, #008B5A, #007547);
-            transform: translateY(-1px);
-            box-shadow: 0 4px 12px rgba(0, 163, 108, 0.3);
-        }
-
-        .password-submit:active {
-            transform: translateY(0);
-        }
-
-        .password-exit {
-            background: rgba(255, 255, 255, 0.1);
-            border: 1px solid rgba(255, 255, 255, 0.2);
-            color: #ccc;
-            padding: 12px 24px;
-            border-radius: 6px;
-            cursor: pointer;
-            font-size: 14px;
-            font-weight: 500;
-            width: 100%;
-            margin-top: 10px;
-            transition: all 0.2s ease;
-        }
-
-        .password-exit:hover {
-            background: rgba(255, 255, 255, 0.2);
-            color: white;
-        }
-
-        .password-error {
-            background: rgba(220, 53, 69, 0.1);
-            border: 1px solid rgba(220, 53, 69, 0.3);
-            border-radius: 4px;
-            padding: 10px;
-            margin-top: 15px;
-            color: #ff6b6b;
-            font-size: 12px;
-        }
-
-        .admin-content {
-            display: none;
-        }
-
-        .admin-content.unlocked {
-            display: block;
-        }
-
-        /* Toggle Switch Styles */
-        .switch {
-            position: relative;
-            display: inline-block;
-            width: 60px;
-            height: 34px;
-        }
-        .switch input {
-            opacity: 0;
-            width: 0;
-            height: 0;
-        }
-        .slider {
-            position: absolute;
-            cursor: pointer;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background-color: #555;
-            transition: .4s;
-            border-radius: 34px;
-        }
-        .slider:before {
-            position: absolute;
-            content: "";
-            height: 26px;
-            width: 26px;
-            left: 4px;
-            bottom: 4px;
-            background-color: white;
-            transition: .4s;
-            border-radius: 50%;
-        }
-        input:checked + .slider {
-            background-color: #00A36C;
-        }
-        input:checked + .slider:before {
-            transform: translateX(26px);
-        }
-        .manual-control-row {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-        .manual-control-row label {
-            font-size: 16px;
-            font-weight: 500;
-        }
-    </style>
 </head>
 <body>
     <!-- Password Prompt Overlay -->
@@ -476,463 +32,418 @@
         </div>
     </div>
 
-    <!-- Main Admin Content (hidden by default) -->
+    <!-- Main Admin Content -->
     <div class="admin-content" id="admin-content">
-        <div class="admin-header">
-            <h1>🔧 Golf Labs Kiosk Admin</h1>
-            <p>System administration and multi-monitor management</p>
-        </div>
-
-        <div class="admin-section">
-            <div class="section-title">
-                <svg class="icon" viewBox="0 0 24 24">
-                    <path d="M12,1L3,5V11C3,16.55 6.84,21.74 12,23C17.16,21.74 21,16.55 21,11V5L12,1M12,7C13.4,7 14.8,8.6 14.8,10V11.5C14.8,12.61 13.91,13.5 12.8,13.5H11.2C10.09,13.5 9.2,12.61 9.2,11.5V10C9.2,8.6 10.6,7 12,7Z"/>
-                </svg>
-                Application Control
-                <svg class="collapse-icon" viewBox="0 0 24 24">
-                    <path d="M7.41,8.58L12,13.17L16.59,8.58L18,10L12,16L6,10L7.41,8.58Z"/>
-                </svg>
+        
+        <!-- Main Menu Page -->
+        <div class="page active" id="menu-page">
+            <div class="admin-header">
+                <h1>🔧 Golf Labs Kiosk Admin</h1>
+                <p>System administration and multi-monitor management</p>
             </div>
-            <div class="section-content expanded" id="app-control-content">
-                <div class="button-grid">
-                    <button class="admin-button warning-button" onclick="restartApp()">
-                        <svg class="icon" viewBox="0 0 24 24">
-                            <path d="M2,12A10,10 0 0,1 12,2A10,10 0 0,1 22,12A10,10 0 0,1 12,22A10,10 0 0,1 2,12M18,12A6,6 0 0,0 12,6V9L8,5L12,1V4A8,8 0 0,1 20,12C20,12.68 19.9,13.34 19.71,13.96L18,12Z"/>
-                        </svg>
-                        Restart App
-                    </button>
-                    <button class="admin-button danger-button" onclick="closeApp()">
-                        <svg class="icon" viewBox="0 0 24 24">
-                            <path d="M19,6.41L17.59,5L12,10.59L6.41,5L5,6.41L10.59,12L5,17.59L6.41,19L12,13.41L17.59,19L19,17.59L13.41,12L19,6.41Z"/>
-                        </svg>
-                        Close App
-                    </button>
+
+            <div class="menu-grid">
+                <div class="menu-card" onclick="navigateTo('app-control')">
+                    <svg class="menu-card-icon" viewBox="0 0 24 24">
+                        <path d="M12,1L3,5V11C3,16.55 6.84,21.74 12,23C17.16,21.74 21,16.55 21,11V5L12,1M12,7C13.4,7 14.8,8.6 14.8,10V11.5C14.8,12.61 13.91,13.5 12.8,13.5H11.2C10.09,13.5 9.2,12.61 9.2,11.5V10C9.2,8.6 10.6,7 12,7Z"/>
+                    </svg>
+                    <div class="menu-card-title">Application Control</div>
+                    <div class="menu-card-description">Restart or close the application</div>
+                </div>
+
+                <div class="menu-card" onclick="navigateTo('monitor-mgmt')">
+                    <svg class="menu-card-icon" viewBox="0 0 24 24">
+                        <path d="M21,16H3V4H21M21,2H3C1.89,2 1,2.89 1,4V16A2,2 0 0,0 3,18H10V20H8V22H16V20H14V18H21A2,2 0 0,0 23,16V4C23,2.89 22.1,2 21,2Z"/>
+                    </svg>
+                    <div class="menu-card-title">Monitor Management</div>
+                    <div class="menu-card-description">Connect and manage displays</div>
+                </div>
+
+                <div class="menu-card" onclick="navigateTo('connection-mgmt')">
+                    <svg class="menu-card-icon" viewBox="0 0 24 24">
+                        <path d="M15,9H9V7.5H15M15,16.5H9V15H15M12,2A10,10 0 0,1 22,12A10,10 0 0,1 12,22A10,10 0 0,1 2,12A10,10 0 0,1 12,2M12,4A8,8 0 0,0 4,12A8,8 0 0,0 12,20A8,8 0 0,0 20,12A8,8 0 0,0 12,4Z"/>
+                    </svg>
+                    <div class="menu-card-title">Connection Management</div>
+                    <div class="menu-card-description">Reconnect WebSocket server</div>
+                </div>
+
+                <div class="menu-card" onclick="navigateTo('config-mgmt')">
+                    <svg class="menu-card-icon" viewBox="0 0 24 24">
+                        <path d="M12,15.5A3.5,3.5 0 0,1 8.5,12A3.5,3.5 0 0,1 12,8.5A3.5,3.5 0 0,1 15.5,12A3.5,3.5 0 0,1 12,15.5M19.43,12.97C19.47,12.65 19.5,12.33 19.5,12C19.5,11.67 19.47,11.34 19.43,11L21.54,9.37C21.73,9.22 21.78,8.95 21.66,8.73L19.66,5.27C19.54,5.05 19.27,4.96 19.05,5.05L16.56,6.05C16.04,5.66 15.5,5.32 14.87,5.07L14.5,2.42C14.46,2.18 14.25,2 14,2H10C9.75,2 9.54,2.18 9.5,2.42L9.13,5.07C8.5,5.32 7.96,5.66 7.44,6.05L4.95,5.05C4.73,4.96 4.46,5.05 4.34,5.27L2.34,8.73C2.22,8.95 2.27,9.22 2.46,9.37L4.57,11C4.53,11.34 4.5,11.67 4.5,12C4.5,12.33 4.53,12.65 4.57,12.97L2.46,14.63C2.27,14.78 2.22,15.05 2.34,15.27L4.34,18.73C4.46,18.95 4.73,19.03 4.95,18.95L7.44,17.94C7.96,18.34 8.5,18.68 9.13,18.93L9.5,21.58C9.54,21.82 9.75,22 10,22H14C14.25,22 14.46,21.82 14.5,21.58L14.87,18.93C15.5,18.68 16.04,18.34 16.56,17.94L19.05,18.95C19.27,19.03 19.54,18.95 19.66,18.73L21.66,15.27C21.78,15.05 21.73,14.78 21.54,14.63L19.43,12.97Z"/>
+                    </svg>
+                    <div class="menu-card-title">Configuration</div>
+                    <div class="menu-card-description">Edit kiosk settings</div>
+                </div>
+
+                <div class="menu-card" onclick="navigateTo('screen-control')">
+                    <svg class="menu-card-icon" viewBox="0 0 24 24">
+                        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 14H9V8h2v8zm4 0h-2V8h2v8z"/>
+                    </svg>
+                    <div class="menu-card-title">Screen Control</div>
+                    <div class="menu-card-description">Manual unlock override</div>
+                </div>
+
+                <div class="menu-card" onclick="navigateTo('console-logs')">
+                    <svg class="menu-card-icon" viewBox="0 0 24 24">
+                        <path d="M20,19V7H4V19H20M20,3A2,2 0 0,1 22,5V19A2,2 0 0,1 20,21H4A2,2 0 0,1 2,19V5C2,3.89 2.9,3 4,3H20M13,17V15H18V17H13M9.58,13L5.57,9H8.4L11.7,12.3C12.09,12.69 12.09,13.33 11.7,13.72L8.42,17H5.59L9.58,13Z"/>
+                    </svg>
+                    <div class="menu-card-title">Console Logs</div>
+                    <div class="menu-card-description">View application logs</div>
+                </div>
+
+                <div class="menu-card" onclick="navigateTo('booking-info')">
+                    <svg class="menu-card-icon" viewBox="0 0 24 24">
+                        <path d="M19,19H5V8H19M16,1V3H8V1H6V3H5C3.89,3 3,3.89 3,5V19A2,2 0 0,0 5,21H19A2,2 0 0,0 21,19V5C21,3.89 20.1,3 19,3H18V1M17,12H12V17H17V12Z"/>
+                    </svg>
+                    <div class="menu-card-title">Booking Info</div>
+                    <div class="menu-card-description">View bookings and manual unlock</div>
+                </div>
+
+                <div class="menu-card" onclick="navigateTo('system-info')">
+                    <svg class="menu-card-icon" viewBox="0 0 24 24">
+                        <path d="M13,9H11V7H13M13,17H11V11H13M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2Z"/>
+                    </svg>
+                    <div class="menu-card-title">System Info</div>
+                    <div class="menu-card-description">Version and cache management</div>
                 </div>
             </div>
+
+            <button class="exit-button" onclick="exitAdmin()">← Exit Admin Mode</button>
         </div>
 
-        <div class="admin-section">
-            <div class="section-title">
-                <svg class="icon" viewBox="0 0 24 24">
-                    <path d="M21,16H3V4H21M21,2H3C1.89,2 1,2.89 1,4V16A2,2 0 0,0 3,18H10V20H8V22H16V20H14V18H21A2,2 0 0,0 23,16V4C23,2.89 22.1,2 21,2Z"/>
-                </svg>
-                Monitor Management
-                <svg class="collapse-icon collapsed" viewBox="0 0 24 24">
-                    <path d="M7.41,8.58L12,13.17L16.59,8.58L18,10L12,16L6,10L7.41,8.58Z"/>
-                </svg>
-            </div>
-            <div class="section-content collapsed" id="monitor-mgmt-content">
-                <div id="display-info" class="status-display">
-                    Loading display information...
-                </div>
-                <div class="button-grid">
-                    <button class="admin-button" onclick="disconnectMonitors()">
-                        <svg class="icon" viewBox="0 0 24 24">
-                            <path d="M8,3V5H16V3H18V5H20A2,2 0 0,1 22,7V19A2,2 0 0,1 20,21H4A2,2 0 0,1 2,19V7A2,2 0 0,1 4,5H6V3H8M4,19H20V10H4V19M6,12H18V17H6V12Z"/>
-                        </svg>
-                        Disconnect Extra
-                    </button>
-                    <button class="admin-button" onclick="reconnectMonitors()">
-                        <svg class="icon" viewBox="0 0 24 24">
-                            <path d="M21,16H3V4H21M21,2H3C1.89,2 1,2.89 1,4V16A2,2 0 0,0 3,18H10V20H8V22H16V20H14V18H21A2,2 0 0,0 23,16V4C23,2.89 22.1,2 21,2Z"/>
-                        </svg>
-                        Reconnect All
-                    </button>
+        <!-- Application Control Page -->
+        <div class="page" id="app-control-page">
+            <div class="page-header">
+                <button class="back-button" onclick="navigateTo('menu')">
+                    <svg class="icon" viewBox="0 0 24 24">
+                        <path d="M20,11V13H8L13.5,18.5L12.08,19.92L4.16,12L12.08,4.08L13.5,5.5L8,11H20Z"/>
+                    </svg>
+                    Back
+                </button>
+                <div class="page-title">
+                    <svg class="page-title-icon" viewBox="0 0 24 24">
+                        <path d="M12,1L3,5V11C3,16.55 6.84,21.74 12,23C17.16,21.74 21,16.55 21,11V5L12,1M12,7C13.4,7 14.8,8.6 14.8,10V11.5C14.8,12.61 13.91,13.5 12.8,13.5H11.2C10.09,13.5 9.2,12.61 9.2,11.5V10C9.2,8.6 10.6,7 12,7Z"/>
+                    </svg>
+                    Application Control
                 </div>
             </div>
-        </div>
 
-        <div class="admin-section">
-            <div class="section-title">
-                <svg class="icon" viewBox="0 0 24 24">
-                    <path d="M15,9H9V7.5H15M15,16.5H9V15H15M12,2A10,10 0 0,1 22,12A10,10 0 0,1 12,22A10,10 0 0,1 2,12A10,10 0 0,1 12,2M12,4A8,8 0 0,0 4,12A8,8 0 0,0 12,20A8,8 0 0,0 20,12A8,8 0 0,0 12,4Z"/>
-                </svg>
-                Connection Management
-                <svg class="collapse-icon collapsed" viewBox="0 0 24 24">
-                    <path d="M7.41,8.58L12,13.17L16.59,8.58L18,10L12,16L6,10L7.41,8.58Z"/>
-                </svg>
-            </div>
-            <div class="section-content collapsed" id="connection-mgmt-content">
-                <div class="button-grid">
-                    <button class="admin-button" onclick="reconnectWebsocket()">
-                        <svg class="icon" viewBox="0 0 24 24">
-                            <path d="M8.5,13.5L11,16.5L14.5,12L19,18H5M21,19V5C21,3.89 20.1,3 19,3H5A2,2 0 0,0 3,5V19A2,2 0 0,0 5,21H19A2,2 0 0,0 21,19Z"/>
-                        </svg>
-                        Reconnect WebSocket
-                    </button>
-                </div>
+            <div class="button-grid">
+                <button class="admin-button warning-button" onclick="restartApp()">
+                    <svg class="icon" viewBox="0 0 24 24">
+                        <path d="M2,12A10,10 0 0,1 12,2A10,10 0 0,1 22,12A10,10 0 0,1 12,22A10,10 0 0,1 2,12M18,12A6,6 0 0,0 12,6V9L8,5L12,1V4A8,8 0 0,1 20,12C20,12.68 19.9,13.34 19.71,13.96L18,12Z"/>
+                    </svg>
+                    Restart App
+                </button>
+                <button class="admin-button danger-button" onclick="closeApp()">
+                    <svg class="icon" viewBox="0 0 24 24">
+                        <path d="M19,6.41L17.59,5L12,10.59L6.41,5L5,6.41L10.59,12L5,17.59L6.41,19L12,13.41L17.59,19L19,17.59L13.41,12L19,6.41Z"/>
+                    </svg>
+                    Close App
+                </button>
             </div>
         </div>
 
-        <div class="admin-section">
-            <div class="section-title">
-                <svg class="icon" viewBox="0 0 24 24">
-                    <path d="M12,15.5A3.5,3.5 0 0,1 8.5,12A3.5,3.5 0 0,1 12,8.5A3.5,3.5 0 0,1 15.5,12A3.5,3.5 0 0,1 12,15.5M19.43,12.97C19.47,12.65 19.5,12.33 19.5,12C19.5,11.67 19.47,11.34 19.43,11L21.54,9.37C21.73,9.22 21.78,8.95 21.66,8.73L19.66,5.27C19.54,5.05 19.27,4.96 19.05,5.05L16.56,6.05C16.04,5.66 15.5,5.32 14.87,5.07L14.5,2.42C14.46,2.18 14.25,2 14,2H10C9.75,2 9.54,2.18 9.5,2.42L9.13,5.07C8.5,5.32 7.96,5.66 7.44,6.05L4.95,5.05C4.73,4.96 4.46,5.05 4.34,5.27L2.34,8.73C2.22,8.95 2.27,9.22 2.46,9.37L4.57,11C4.53,11.34 4.5,11.67 4.5,12C4.5,12.33 4.53,12.65 4.57,12.97L2.46,14.63C2.27,14.78 2.22,15.05 2.34,15.27L4.34,18.73C4.46,18.95 4.73,19.03 4.95,18.95L7.44,17.94C7.96,18.34 8.5,18.68 9.13,18.93L9.5,21.58C9.54,21.82 9.75,22 10,22H14C14.25,22 14.46,21.82 14.5,21.58L14.87,18.93C15.5,18.68 16.04,18.34 16.56,17.94L19.05,18.95C19.27,19.03 19.54,18.95 19.66,18.73L21.66,15.27C21.78,15.05 21.73,14.78 21.54,14.63L19.43,12.97Z"/>
-                </svg>
-                Configuration Management
-                <svg class="collapse-icon collapsed" viewBox="0 0 24 24">
-                    <path d="M7.41,8.58L12,13.17L16.59,8.58L18,10L12,16L6,10L7.41,8.58Z"/>
-                </svg>
+        <!-- Monitor Management Page -->
+        <div class="page" id="monitor-mgmt-page">
+            <div class="page-header">
+                <button class="back-button" onclick="navigateTo('menu')">
+                    <svg class="icon" viewBox="0 0 24 24">
+                        <path d="M20,11V13H8L13.5,18.5L12.08,19.92L4.16,12L12.08,4.08L13.5,5.5L8,11H20Z"/>
+                    </svg>
+                    Back
+                </button>
+                <div class="page-title">
+                    <svg class="page-title-icon" viewBox="0 0 24 24">
+                        <path d="M21,16H3V4H21M21,2H3C1.89,2 1,2.89 1,4V16A2,2 0 0,0 3,18H10V20H8V22H16V20H14V18H21A2,2 0 0,0 23,16V4C23,2.89 22.1,2 21,2Z"/>
+                    </svg>
+                    Monitor Management
+                </div>
             </div>
-            <div class="section-content collapsed" id="config-mgmt-content">
-                <div id="config-form">
-                    <div class="config-grid">
-                        <div class="config-field">
-                            <label for="bayId">Bay ID:</label>
-                            <input type="text" id="bayId" placeholder="UUID for the bay" disabled>
-                        </div>
-                        <div class="config-field">
-                            <label for="locationId">Location ID:</label>
-                            <input type="text" id="locationId" placeholder="UUID for the location" disabled>
-                        </div>
-                        <div class="config-field">
-                            <label for="apiBaseUrl">API Base URL:</label>
-                            <input type="url" id="apiBaseUrl" placeholder="https://api.example.com" disabled>
-                        </div>
-                        <div class="config-field">
-                            <label for="shellyIP">Shelly IP Address:</label>
-                            <input type="text" id="shellyIP" placeholder="192.168.1.100" disabled>
-                        </div>
-                        <div class="config-field">
-                            <label for="timezone">Timezone:</label>
-                            <input type="text" id="timezone" placeholder="America/New_York" disabled>
-                        </div>
+
+            <div id="display-info" class="status-display">
+                Loading display information...
+            </div>
+            <div class="button-grid" style="margin-top: 20px;">
+                <button class="admin-button" onclick="disconnectMonitors()">
+                    <svg class="icon" viewBox="0 0 24 24">
+                        <path d="M8,3V5H16V3H18V5H20A2,2 0 0,1 22,7V19A2,2 0 0,1 20,21H4A2,2 0 0,1 2,19V7A2,2 0 0,1 4,5H6V3H8M4,19H20V10H4V19M6,12H18V17H6V12Z"/>
+                    </svg>
+                    Disconnect Extra
+                </button>
+                <button class="admin-button" onclick="reconnectMonitors()">
+                    <svg class="icon" viewBox="0 0 24 24">
+                        <path d="M21,16H3V4H21M21,2H3C1.89,2 1,2.89 1,4V16A2,2 0 0,0 3,18H10V20H8V22H16V20H14V18H21A2,2 0 0,0 23,16V4C23,2.89 22.1,2 21,2Z"/>
+                    </svg>
+                    Reconnect All
+                </button>
+            </div>
+        </div>
+
+        <!-- Connection Management Page -->
+        <div class="page" id="connection-mgmt-page">
+            <div class="page-header">
+                <button class="back-button" onclick="navigateTo('menu')">
+                    <svg class="icon" viewBox="0 0 24 24">
+                        <path d="M20,11V13H8L13.5,18.5L12.08,19.92L4.16,12L12.08,4.08L13.5,5.5L8,11H20Z"/>
+                    </svg>
+                    Back
+                </button>
+                <div class="page-title">
+                    <svg class="page-title-icon" viewBox="0 0 24 24">
+                        <path d="M15,9H9V7.5H15M15,16.5H9V15H15M12,2A10,10 0 0,1 22,12A10,10 0 0,1 12,22A10,10 0 0,1 2,12A10,10 0 0,1 12,2M12,4A8,8 0 0,0 4,12A8,8 0 0,0 12,20A8,8 0 0,0 20,12A8,8 0 0,0 12,4Z"/>
+                    </svg>
+                    Connection Management
+                </div>
+            </div>
+
+            <div class="button-grid">
+                <button class="admin-button" onclick="reconnectWebsocket()">
+                    <svg class="icon" viewBox="0 0 24 24">
+                        <path d="M8.5,13.5L11,16.5L14.5,12L19,18H5M21,19V5C21,3.89 20.1,3 19,3H5A2,2 0 0,0 3,5V19A2,2 0 0,0 5,21H19A2,2 0 0,0 21,19Z"/>
+                    </svg>
+                    Reconnect WebSocket
+                </button>
+            </div>
+        </div>
+
+        <!-- Configuration Management Page -->
+        <div class="page" id="config-mgmt-page">
+            <div class="page-header">
+                <button class="back-button" onclick="navigateTo('menu')">
+                    <svg class="icon" viewBox="0 0 24 24">
+                        <path d="M20,11V13H8L13.5,18.5L12.08,19.92L4.16,12L12.08,4.08L13.5,5.5L8,11H20Z"/>
+                    </svg>
+                    Back
+                </button>
+                <div class="page-title">
+                    <svg class="page-title-icon" viewBox="0 0 24 24">
+                        <path d="M12,15.5A3.5,3.5 0 0,1 8.5,12A3.5,3.5 0 0,1 12,8.5A3.5,3.5 0 0,1 15.5,12A3.5,3.5 0 0,1 12,15.5M19.43,12.97C19.47,12.65 19.5,12.33 19.5,12C19.5,11.67 19.47,11.34 19.43,11L21.54,9.37C21.73,9.22 21.78,8.95 21.66,8.73L19.66,5.27C19.54,5.05 19.27,4.96 19.05,5.05L16.56,6.05C16.04,5.66 15.5,5.32 14.87,5.07L14.5,2.42C14.46,2.18 14.25,2 14,2H10C9.75,2 9.54,2.18 9.5,2.42L9.13,5.07C8.5,5.32 7.96,5.66 7.44,6.05L4.95,5.05C4.73,4.96 4.46,5.05 4.34,5.27L2.34,8.73C2.22,8.95 2.27,9.22 2.46,9.37L4.57,11C4.53,11.34 4.5,11.67 4.5,12C4.5,12.33 4.53,12.65 4.57,12.97L2.46,14.63C2.27,14.78 2.22,15.05 2.34,15.27L4.34,18.73C4.46,18.95 4.73,19.03 4.95,18.95L7.44,17.94C7.96,18.34 8.5,18.68 9.13,18.93L9.5,21.58C9.54,21.82 9.75,22 10,22H14C14.25,22 14.46,21.82 14.5,21.58L14.87,18.93C15.5,18.68 16.04,18.34 16.56,17.94L19.05,18.95C19.27,19.03 19.54,18.95 19.66,18.73L21.66,15.27C21.78,15.05 21.73,14.78 21.54,14.63L19.43,12.97Z"/>
+                    </svg>
+                    Configuration Management
+                </div>
+            </div>
+
+            <div id="config-form">
+                <div class="config-grid">
+                    <div class="config-field">
+                        <label for="bayId">Bay ID:</label>
+                        <input type="text" id="bayId" placeholder="UUID for the bay" disabled>
                     </div>
-                    <button class="admin-button" id="config-toggle-btn" onclick="toggleConfigEdit()" style="margin-top: 20px; width: 100%;">
-                        <svg class="icon" viewBox="0 0 24 24" id="config-btn-icon">
-                            <path d="M20.71,7.04C21.1,6.65 21.1,6 20.71,5.63L18.37,3.29C18,2.9 17.35,2.9 16.96,3.29L15.12,5.12L18.87,8.87M3,17.25V21H6.75L17.81,9.93L14.06,6.18L3,17.25Z"/>
-                        </svg>
-                        <span id="config-btn-text">Edit Config</span>
-                    </button>
-                    <div id="config-message"></div>
+                    <div class="config-field">
+                        <label for="locationId">Location ID:</label>
+                        <input type="text" id="locationId" placeholder="UUID for the location" disabled>
+                    </div>
+                    <div class="config-field">
+                        <label for="apiBaseUrl">API Base URL:</label>
+                        <input type="url" id="apiBaseUrl" placeholder="https://api.example.com" disabled>
+                    </div>
+                    <div class="config-field">
+                        <label for="shellyIP">Shelly IP Address:</label>
+                        <input type="text" id="shellyIP" placeholder="192.168.1.100" disabled>
+                    </div>
+                    <div class="config-field">
+                        <label for="timezone">Timezone:</label>
+                        <input type="text" id="timezone" placeholder="America/New_York" disabled>
+                    </div>
                 </div>
+                <button class="admin-button" id="config-toggle-btn" onclick="toggleConfigEdit()" style="margin-top: 20px; width: 100%;">
+                    <svg class="icon" viewBox="0 0 24 24" id="config-btn-icon">
+                        <path d="M20.71,7.04C21.1,6.65 21.1,6 20.71,5.63L18.37,3.29C18,2.9 17.35,2.9 16.96,3.29L15.12,5.12L18.87,8.87M3,17.25V21H6.75L17.81,9.93L14.06,6.18L3,17.25Z"/>
+                    </svg>
+                    <span id="config-btn-text">Edit Config</span>
+                </button>
+                <div id="config-message"></div>
+            </div>
+
+            <div style="margin-top: 40px; padding-top: 30px; border-top: 1px solid rgba(255,255,255,0.1);">
+                <h3 style="color: #00A36C; font-size: 16px; margin-bottom: 15px; display: flex; align-items: center; gap: 8px;">
+                    <svg class="icon" viewBox="0 0 24 24" style="width: 20px; height: 20px; fill: currentColor;">
+                        <path d="M12,17A2,2 0 0,0 14,15C14,13.89 13.1,13 12,13A2,2 0 0,0 10,15A2,2 0 0,0 12,17M18,8A2,2 0 0,1 20,10V20A2,2 0 0,1 18,22H6A2,2 0 0,1 4,20V10C4,8.89 4.9,8 6,8H7V6A5,5 0 0,1 12,1A5,5 0 0,1 17,6V8H18M12,3A3,3 0 0,0 9,6V8H15V6A3,3 0 0,0 12,3Z"/>
+                    </svg>
+                    Change Admin Password
+                </h3>
+                <div class="config-grid">
+                    <div class="config-field">
+                        <label for="current-password">Current Password:</label>
+                        <input type="password" id="current-password" placeholder="Enter current password">
+                    </div>
+                    <div class="config-field">
+                        <label for="new-password">New Password:</label>
+                        <input type="password" id="new-password" placeholder="Enter new password">
+                    </div>
+                    <div class="config-field">
+                        <label for="confirm-password">Confirm New Password:</label>
+                        <input type="password" id="confirm-password" placeholder="Confirm new password">
+                    </div>
+                </div>
+                <button class="admin-button warning-button" onclick="changePassword()" style="margin-top: 20px; width: 100%;">
+                    <svg class="icon" viewBox="0 0 24 24">
+                        <path d="M12,17A2,2 0 0,0 14,15C14,13.89 13.1,13 12,13A2,2 0 0,0 10,15A2,2 0 0,0 12,17M18,8A2,2 0 0,1 20,10V20A2,2 0 0,1 18,22H6A2,2 0 0,1 4,20V10C4,8.89 4.9,8 6,8H7V6A5,5 0 0,1 12,1A5,5 0 0,1 17,6V8H18M12,3A3,3 0 0,0 9,6V8H15V6A3,3 0 0,0 12,3Z"/>
+                    </svg>
+                    Change Password
+                </button>
+                <div id="password-change-message"></div>
             </div>
         </div>
 
-        <div class="admin-section">
-            <div class="section-title">
-                <svg class="icon" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 14H9V8h2v8zm4 0h-2V8h2v8z"></path></svg>
-                <span>Screen Control</span>
-                <svg class="collapse-icon collapsed" viewBox="0 0 24 24"><path d="M7.41 8.59L12 13.17l4.59-4.58L18 10l-6 6-6-6 1.41-1.41z"></path></svg>
-            </div>
-            <div class="section-content collapsed" id="screen-control-content">
-                <div class="manual-control-row">
-                    <label for="manual-unlock-switch">Manual Unlock Screen</label>
-                    <label class="switch">
-                        <input type="checkbox" id="manual-unlock-switch">
-                        <span class="slider"></span>
-                    </label>
+        <!-- Screen Control Page -->
+        <div class="page" id="screen-control-page">
+            <div class="page-header">
+                <button class="back-button" onclick="navigateTo('menu')">
+                    <svg class="icon" viewBox="0 0 24 24">
+                        <path d="M20,11V13H8L13.5,18.5L12.08,19.92L4.16,12L12.08,4.08L13.5,5.5L8,11H20Z"/>
+                    </svg>
+                    Back
+                </button>
+                <div class="page-title">
+                    <svg class="page-title-icon" viewBox="0 0 24 24">
+                        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 14H9V8h2v8zm4 0h-2V8h2v8z"/>
+                    </svg>
+                    Screen Control
                 </div>
-                <p style="font-size: 12px; color: #aaa; margin-top: 10px;">
-                    When enabled, the screen will be permanently unlocked, overriding any bookings. Disable to return to automatic booking-based control.
+            </div>
+
+            <div class="manual-control-row">
+                <label for="manual-unlock-switch">Manual Unlock Screen</label>
+                <label class="switch">
+                    <input type="checkbox" id="manual-unlock-switch">
+                    <span class="slider"></span>
+                </label>
+            </div>
+            <p style="font-size: 12px; color: #aaa; margin-top: 10px;">
+                When enabled, the screen will be permanently unlocked, overriding any bookings. Disable to return to automatic booking-based control.
+            </p>
+        </div>
+
+        <!-- Console Logs Page -->
+        <div class="page" id="console-logs-page">
+            <div class="page-header">
+                <button class="back-button" onclick="navigateTo('menu')">
+                    <svg class="icon" viewBox="0 0 24 24">
+                        <path d="M20,11V13H8L13.5,18.5L12.08,19.92L4.16,12L12.08,4.08L13.5,5.5L8,11H20Z"/>
+                    </svg>
+                    Back
+                </button>
+                <div class="page-title">
+                    <svg class="page-title-icon" viewBox="0 0 24 24">
+                        <path d="M20,19V7H4V19H20M20,3A2,2 0 0,1 22,5V19A2,2 0 0,1 20,21H4A2,2 0 0,1 2,19V5C2,3.89 2.9,3 4,3H20M13,17V15H18V17H13M9.58,13L5.57,9H8.4L11.7,12.3C12.09,12.69 12.09,13.33 11.7,13.72L8.42,17H5.59L9.58,13Z"/>
+                    </svg>
+                    Console Logs
+                </div>
+            </div>
+
+            <div class="console-toolbar">
+                <button class="console-refresh" onclick="refreshLogs()">Refresh</button>
+                <button class="console-clear" onclick="clearLogs()">Clear</button>
+                <span class="console-count" id="log-count">0 entries</span>
+            </div>
+            <div class="console-container" id="console-container">
+                <div class="console-empty">No logs yet. Click Refresh to load.</div>
+            </div>
+        </div>
+
+        <!-- Booking Info Page -->
+        <div class="page" id="booking-info-page">
+            <div class="page-header">
+                <button class="back-button" onclick="navigateTo('menu')">
+                    <svg class="icon" viewBox="0 0 24 24">
+                        <path d="M20,11V13H8L13.5,18.5L12.08,19.92L4.16,12L12.08,4.08L13.5,5.5L8,11H20Z"/>
+                    </svg>
+                    Back
+                </button>
+                <div class="page-title">
+                    <svg class="page-title-icon" viewBox="0 0 24 24">
+                        <path d="M19,19H5V8H19M16,1V3H8V1H6V3H5C3.89,3 3,3.89 3,5V19A2,2 0 0,0 5,21H19A2,2 0 0,0 21,19V5C21,3.89 20.1,3 19,3H18V1M17,12H12V17H17V12Z"/>
+                    </svg>
+                    Booking Info
+                </div>
+            </div>
+
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px;">
+                <div class="info-card">
+                    <div class="info-card-title">Total Bookings</div>
+                    <div class="info-card-value" id="total-bookings">0</div>
+                </div>
+                <div class="info-card">
+                    <div class="info-card-title">Time Until Next Booking</div>
+                    <div class="info-card-value" id="time-until-next">--</div>
+                </div>
+            </div>
+
+            <div class="booking-list" id="booking-list">
+                <div class="no-bookings">Loading bookings...</div>
+            </div>
+
+            <div class="unlock-section">
+                <div class="unlock-section-title">Timed Screen Unlock</div>
+                <p style="font-size: 12px; color: #aaa; margin-bottom: 15px;">
+                    Temporarily unlock the screen for a specified duration. Will check against upcoming bookings to prevent conflicts.
                 </p>
+                <div class="unlock-controls">
+                    <input type="number" class="unlock-input" id="unlock-duration" min="1" max="480" value="30" placeholder="Minutes">
+                    <span style="color: #aaa; font-size: 14px;">minutes</span>
+                    <button class="admin-button" onclick="triggerManualUnlock()">
+                        <svg class="icon" viewBox="0 0 24 24">
+                            <path d="M18,8A2,2 0 0,1 20,10V20A2,2 0 0,1 18,22H6C4.89,22 4,21.1 4,20V10A2,2 0 0,1 6,8H15V6A3,3 0 0,0 12,3A3,3 0 0,0 9,6H7A5,5 0 0,1 12,1A5,5 0 0,1 17,6V8H18M12,17A2,2 0 0,0 14,15A2,2 0 0,0 12,13A2,2 0 0,0 10,15A2,2 0 0,0 12,17Z"/>
+                        </svg>
+                        Unlock Screen
+                    </button>
+                </div>
+                <div class="unlock-warning" id="unlock-warning"></div>
+                <div class="unlock-success" id="unlock-success"></div>
             </div>
         </div>
 
-        <button class="exit-button" onclick="exitAdmin()">
-            ← Exit Admin Mode
-        </button>
+        <!-- System Info Page -->
+        <div class="page" id="system-info-page">
+            <div class="page-header">
+                <button class="back-button" onclick="navigateTo('menu')">
+                    <svg class="icon" viewBox="0 0 24 24">
+                        <path d="M20,11V13H8L13.5,18.5L12.08,19.92L4.16,12L12.08,4.08L13.5,5.5L8,11H20Z"/>
+                    </svg>
+                    Back
+                </button>
+                <div class="page-title">
+                    <svg class="page-title-icon" viewBox="0 0 24 24">
+                        <path d="M13,9H11V7H13M13,17H11V11H13M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2Z"/>
+                    </svg>
+                    System Info
+                </div>
+            </div>
+
+            <div class="version-display">
+                <div class="version-number" id="app-version">--</div>
+                <div class="version-name" id="app-name">Golf Labs Kiosk</div>
+            </div>
+
+            <div class="info-row">
+                <span class="info-row-label">Application Name</span>
+                <span class="info-row-value" id="app-full-name">--</span>
+            </div>
+
+            <div class="info-row">
+                <span class="info-row-label">Description</span>
+                <span class="info-row-value" id="app-description">--</span>
+            </div>
+
+            <div style="margin-top: 30px;">
+                <h3 style="color: #00A36C; font-size: 16px; margin-bottom: 15px;">Cache Management</h3>
+                <p style="font-size: 12px; color: #aaa; margin-bottom: 15px;">
+                    Clear the cached bookings and request fresh data from the server.
+                </p>
+                <button class="admin-button warning-button" onclick="clearCache()">
+                    <svg class="icon" viewBox="0 0 24 24">
+                        <path d="M19,4H15.5L14.5,3H9.5L8.5,4H5V6H19M6,19A2,2 0 0,0 8,21H16A2,2 0 0,0 18,19V7H6V19Z"/>
+                    </svg>
+                    Clear Cache & Sync
+                </button>
+                <div id="cache-message" style="margin-top: 10px;"></div>
+            </div>
+        </div>
+
     </div>
 
-    <script>
-        let displayInfo = null;
-
-        async function loadDisplayInfo() {
-            try {
-                displayInfo = await window.electronAPI.getDisplayInfo();
-                updateDisplayInfo();
-            } catch (error) {
-                console.error('Failed to load display info:', error);
-                document.getElementById('display-info').textContent = 'Error loading display information';
-            }
-        }
-
-        function updateDisplayInfo() {
-            const infoElement = document.getElementById('display-info');
-            if (!displayInfo) {
-                infoElement.textContent = 'No display information available';
-                return;
-            }
-
-            const { displays, additionalWindowsCount } = displayInfo;
-            
-            let infoHtml = `
-                <div style="margin-bottom: 10px;">
-                    <strong>Total Displays:</strong> ${displays.length} | 
-                    <strong>Active Windows:</strong> ${additionalWindowsCount + 1} (1 primary + ${additionalWindowsCount} additional)
-                </div>
-            `;
-
-            displays.forEach((display, index) => {
-                infoHtml += `
-                    <div class="monitor-info">
-                        <span>Display ${index + 1}: ${display.bounds.width}×${display.bounds.height}</span>
-                        ${display.isPrimary ? '<span class="primary-badge">PRIMARY</span>' : ''}
-                    </div>
-                `;
-            });
-
-            infoElement.innerHTML = infoHtml;
-        }
-
-        async function restartApp() {
-            if (confirm('Are you sure you want to restart the application?')) {
-                try {
-                    await window.electronAPI.adminRestartApp();
-                } catch (error) {
-                    console.error('Restart failed:', error);
-                    alert('Failed to restart application');
-                }
-            }
-        }
-
-        async function closeApp() {
-            if (confirm('Are you sure you want to close the application?')) {
-                try {
-                    await window.electronAPI.adminCloseApp();
-                } catch (error) {
-                    console.error('Close failed:', error);
-                    alert('Failed to close application');
-                }
-            }
-        }
-
-        async function disconnectMonitors() {
-            try {
-                const result = await window.electronAPI.adminDisconnectMonitors();
-                alert(result.message);
-                await loadDisplayInfo(); // Refresh display info
-            } catch (error) {
-                console.error('Disconnect failed:', error);
-                alert('Failed to disconnect monitors');
-            }
-        }
-
-        async function reconnectMonitors() {
-            try {
-                const result = await window.electronAPI.adminReconnectMonitors();
-                alert(result.message);
-                await loadDisplayInfo(); // Refresh display info
-            } catch (error) {
-                console.error('Reconnect failed:', error);
-                alert('Failed to reconnect monitors');
-            }
-        }
-
-        async function reconnectWebsocket() {
-            try {
-                const result = await window.electronAPI.adminReconnectWebsocket();
-                alert(result.message);
-            } catch (error) {
-                console.error('WebSocket reconnect failed:', error);
-                alert('Failed to reconnect WebSocket');
-            }
-        }
-
-        async function exitAdmin() {
-            try {
-                await window.electronAPI.adminClose();
-            } catch (error) {
-                console.error('Exit admin failed:', error);
-            }
-        }
-
-        // Config management variables
-        let currentConfig = null;
-        let isEditMode = false;
-
-        // Password validation functionality
-        async function validatePassword(event) {
-            event.preventDefault();
-            
-            const passwordInput = document.getElementById('password-input');
-            const errorDiv = document.getElementById('password-error');
-            const password = passwordInput.value;
-
-            errorDiv.style.display = 'none';
-            errorDiv.textContent = '';
-
-            if (!password) {
-                showPasswordError('Please enter a password');
-                return;
-            }
-
-            try {
-                const result = await window.electronAPI.adminValidatePassword(password);
-                
-                if (result.success) {
-                    document.getElementById('password-overlay').style.display = 'none';
-                    document.getElementById('admin-content').classList.add('unlocked');
-                    
-                    loadDisplayInfo();
-                    loadConfig();
-                } else {
-                    showPasswordError(result.error || 'Invalid password');
-                    passwordInput.value = '';
-                    passwordInput.focus();
-                }
-            } catch (error) {
-                console.error('Password validation error:', error);
-                showPasswordError('Authentication failed. Please try again.');
-                passwordInput.value = '';
-                passwordInput.focus();
-            }
-        }
-
-        function showPasswordError(message) {
-            const errorDiv = document.getElementById('password-error');
-            errorDiv.textContent = message;
-            errorDiv.style.display = 'block';
-        }
-
-        function toggleSection(sectionId) {
-            const content = document.getElementById(sectionId + '-content');
-            const icon = content.parentElement.querySelector('.collapse-icon');
-            
-            if (content.classList.contains('collapsed')) {
-                content.classList.remove('collapsed');
-                content.classList.add('expanded');
-                icon.classList.remove('collapsed');
-            } else {
-                content.classList.remove('expanded');
-                content.classList.add('collapsed');
-                icon.classList.add('collapsed');
-            }
-        }
-
-        async function loadConfig() {
-            try {
-                const result = await window.electronAPI.adminGetConfig();
-                if (result.success) {
-                    currentConfig = result.config;
-                    populateConfigForm(result.config);
-                } else {
-                    showConfigMessage(`Failed to load config: ${result.error}`, 'error');
-                }
-            } catch (error) {
-                console.error('Failed to load config:', error);
-                showConfigMessage(`Error loading configuration: ${error.message}`, 'error');
-            }
-        }
-
-        function populateConfigForm(config) {
-            document.getElementById('bayId').value = config.bayId || '';
-            document.getElementById('locationId').value = config.locationId || '';
-            document.getElementById('apiBaseUrl').value = config.apiBaseUrl || '';
-            document.getElementById('shellyIP').value = config.shellyIP || '';
-            document.getElementById('timezone').value = config.timezone || '';
-        }
-
-        function toggleConfigEdit() {
-            const inputs = document.querySelectorAll('#config-form input');
-            const toggleBtn = document.getElementById('config-toggle-btn');
-            const btnIcon = document.getElementById('config-btn-icon');
-            const btnText = document.getElementById('config-btn-text');
-            
-            if (isEditMode) {
-                saveConfig();
-            } else {
-                isEditMode = true;
-                inputs.forEach(input => input.disabled = false);
-                
-                toggleBtn.className = 'admin-button warning-button';
-                btnIcon.innerHTML = '<path d="M15,9H5V5H15M12,19A3,3 0 0,1 9,16A3,3 0 0,1 12,13A3,3 0 0,1 15,16A3,3 0 0,1 12,19M17,3H5C3.89,3 3,3.9 3,5V19A2,2 0 0,0 5,21H19A2,2 0 0,0 21,19V7L17,3Z"/>';
-                btnText.textContent = 'Save Config';
-                
-                clearConfigMessage();
-            }
-        }
-
-        async function saveConfig() {
-            try {
-                const newConfig = {
-                    bayId: document.getElementById('bayId').value.trim(),
-                    locationId: document.getElementById('locationId').value.trim(),
-                    apiBaseUrl: document.getElementById('apiBaseUrl').value.trim(),
-                    shellyIP: document.getElementById('shellyIP').value.trim(),
-                    timezone: document.getElementById('timezone').value.trim()
-                };
-
-                const result = await window.electronAPI.adminSaveConfig(newConfig);
-                
-                if (result.success) {
-                    currentConfig = newConfig;
-                    
-                    isEditMode = false;
-                    const inputs = document.querySelectorAll('#config-form input');
-                    inputs.forEach(input => input.disabled = true);
-                    
-                    const toggleBtn = document.getElementById('config-toggle-btn');
-                    const btnIcon = document.getElementById('config-btn-icon');
-                    const btnText = document.getElementById('config-btn-text');
-                    
-                    toggleBtn.className = 'admin-button';
-                    btnIcon.innerHTML = '<path d="M20.71,7.04C21.1,6.65 21.1,6 20.71,5.63L18.37,3.29C18,2.9 17.35,2.9 16.96,3.29L15.12,5.12L18.87,8.87M3,17.25V21H6.75L17.81,9.93L14.06,6.18L3,17.25Z"/>';
-                    btnText.textContent = 'Edit Config';
-                    
-                    showConfigMessage(`✅ ${result.message}${result.requiresRestart ? '\n⚠️ Application restart required for full effect.' : ''}`, 'success');
-                    
-                } else {
-                    showConfigMessage(`❌ Failed to save config: ${result.error}`, 'error');
-                }
-            } catch (error) {
-                console.error('Save config failed:', error);
-                showConfigMessage(`❌ Error saving configuration: ${error.message}`, 'error');
-            }
-        }
-
-        function showConfigMessage(message, type) {
-            const messageDiv = document.getElementById('config-message');
-            messageDiv.className = type === 'error' ? 'error-message' : 'success-message';
-            messageDiv.innerHTML = message.replace(/\n/g, '<br>');
-            
-            if (type === 'success') {
-                setTimeout(() => {
-                    clearConfigMessage();
-                }, 5000);
-            }
-        }
-
-        function clearConfigMessage() {
-            const messageDiv = document.getElementById('config-message');
-            messageDiv.innerHTML = '';
-            messageDiv.className = '';
-        }
-
-        window.addEventListener('DOMContentLoaded', () => {
-            document.getElementById('password-input').focus();
-        });
-
-        setInterval(() => {
-            if (document.getElementById('admin-content').classList.contains('unlocked')) {
-                loadDisplayInfo();
-            }
-        }, 5000);
-
-        // This is the correct, existing initializer
-        document.querySelectorAll('.section-title').forEach(title => {
-            title.addEventListener('click', () => {
-                const content = title.nextElementSibling;
-                const icon = title.querySelector('.collapse-icon');
-                content.classList.toggle('expanded');
-                content.classList.toggle('collapsed');
-                icon.classList.toggle('collapsed');
-            });
-        });
-
-        // Initialize manual unlock switch
-        const manualUnlockSwitch = document.getElementById('manual-unlock-switch');
-
-        window.electronAPI.getManualUnlockState().then(initialState => {
-            manualUnlockSwitch.checked = initialState;
-        });
-
-        manualUnlockSwitch.addEventListener('change', (event) => {
-            const isUnlocked = event.target.checked;
-            window.electronAPI.setManualUnlockState(isUnlocked).then(result => {
-            });
-        });
-
-    </script>
+    <script src="admin.js"></script>
 </body>
-</html> 
+</html>

@@ -16,10 +16,33 @@ let socket;
 let bookings = []; // In-memory store for bookings
 let pollingInterval;
 let isManuallyUnlocked = false;
+let manualUnlockEndTime = null; // Track when the timed unlock expires
 
 // Admin mode key tracking
 let keysPressed = new Set();
 let adminKeyCombo = ['PageUp', 'PageDown'];
+
+// In-memory log buffer (keep last 500 entries)
+const logBuffer = [];
+const MAX_LOG_ENTRIES = 500;
+
+function addToLogBuffer(level, args) {
+  const entry = {
+    time: new Date().toISOString(),
+    level,
+    message: args.map(a => typeof a === 'object' ? JSON.stringify(a) : String(a)).join(' ')
+  };
+  logBuffer.push(entry);
+  if (logBuffer.length > MAX_LOG_ENTRIES) logBuffer.shift();
+}
+
+const originalLog = console.log;
+const originalError = console.error;
+const originalWarn = console.warn;
+
+console.log = (...args) => { addToLogBuffer('log', args); originalLog(...args); };
+console.error = (...args) => { addToLogBuffer('error', args); originalError(...args); };
+console.warn = (...args) => { addToLogBuffer('warn', args); originalWarn(...args); };
 
 function loadConfig() {
   try {
@@ -539,6 +562,131 @@ ipcMain.handle('admin-validate-password', (event, password) => {
     }
 });
 
+ipcMain.handle('admin-get-logs', () => {
+    return logBuffer;
+});
+
+ipcMain.handle('admin-clear-logs', () => {
+    logBuffer.length = 0;
+    return { success: true };
+});
+
+ipcMain.handle('admin-get-bookings', () => {
+    return bookings;
+});
+
+ipcMain.handle('admin-get-version', () => {
+    try {
+        const packagePath = path.join(__dirname, 'package.json');
+        const packageData = JSON.parse(fs.readFileSync(packagePath, 'utf8'));
+        return {
+            version: packageData.version,
+            name: packageData.productName || packageData.name,
+            description: packageData.description
+        };
+    } catch (error) {
+        console.error('Failed to read package.json:', error);
+        return { version: 'Unknown', name: 'Golf Labs Kiosk', description: '' };
+    }
+});
+
+ipcMain.handle('admin-clear-cache', () => {
+    console.log('Clearing bookings cache and requesting fresh sync...');
+    bookings = [];
+    
+    // Request fresh bookings from server
+    if (socket && socket.connected) {
+        socket.emit('request_initial_bookings', { 
+            locationId: config.locationId, 
+            bayId: config.bayId 
+        });
+        return { success: true, message: 'Cache cleared and sync requested' };
+    } else {
+        return { success: true, message: 'Cache cleared. WebSocket not connected - sync will happen on reconnect' };
+    }
+});
+
+ipcMain.handle('admin-manual-unlock', async (event, durationMinutes) => {
+    console.log(`Admin timed screen unlock requested for ${durationMinutes} minutes`);
+
+    try {
+        // Set the manual unlock state to true
+        isManuallyUnlocked = true;
+        
+        // Calculate and store the end time
+        const durationMs = durationMinutes * 60 * 1000;
+        manualUnlockEndTime = new Date(Date.now() + durationMs);
+        
+        // Notify all windows of the change with end time
+        [mainWindow, ...additionalWindows].forEach(window => {
+            if (window && !window.isDestroyed()) {
+                window.webContents.send('manual-unlock-state-changed', isManuallyUnlocked, manualUnlockEndTime.toISOString());
+            }
+        });
+
+        // Set a timer to re-lock the screen after the duration
+        setTimeout(() => {
+            isManuallyUnlocked = false;
+            manualUnlockEndTime = null;
+            console.log(`Timed screen unlock expired after ${durationMinutes} minutes`);
+            
+            // Notify all windows of the change
+            [mainWindow, ...additionalWindows].forEach(window => {
+                if (window && !window.isDestroyed()) {
+                    window.webContents.send('manual-unlock-state-changed', isManuallyUnlocked, null);
+                }
+            });
+        }, durationMs);
+
+        console.log(`Screen unlocked via admin panel for ${durationMinutes} minutes`);
+        return { success: true, message: `Screen unlocked for ${durationMinutes} minutes` };
+    } catch (error) {
+        console.error('Admin timed screen unlock failed:', error);
+        return { success: false, error: error.message };
+    }
+});
+
+ipcMain.handle('admin-change-password', (event, { currentPassword, newPassword }) => {
+    try {
+        if (!config || !config.adminPassword) {
+            return { success: false, error: 'Admin password not configured' };
+        }
+
+        // Verify current password
+        if (currentPassword !== config.adminPassword) {
+            return { success: false, error: 'Current password is incorrect' };
+        }
+
+        // Validate new password
+        if (!newPassword || newPassword.length < 4) {
+            return { success: false, error: 'New password must be at least 4 characters' };
+        }
+
+        // Read current config
+        const currentConfigData = fs.readFileSync(CONFIG_PATH, 'utf8');
+        const currentConfigFromFile = JSON.parse(currentConfigData);
+
+        // Update password
+        currentConfigFromFile.adminPassword = newPassword;
+
+        // Create backup
+        const backupPath = CONFIG_PATH + '.backup';
+        fs.copyFileSync(CONFIG_PATH, backupPath);
+
+        // Write updated config
+        fs.writeFileSync(CONFIG_PATH, JSON.stringify(currentConfigFromFile, null, 4));
+
+        // Update in-memory config
+        config.adminPassword = newPassword;
+
+        console.log('Admin password changed successfully');
+        return { success: true, message: 'Password changed successfully' };
+    } catch (error) {
+        console.error('Failed to change admin password:', error);
+        return { success: false, error: error.message };
+    }
+});
+
 ipcMain.handle('admin-save-config', (event, newConfig) => {
     try {
         // Validate required fields (excluding adminPassword which is not editable)
@@ -607,17 +755,24 @@ ipcMain.handle('admin-close', () => {
 });
 
 ipcMain.handle('admin-get-manual-unlock-state', () => {
-    return isManuallyUnlocked;
+    return {
+        unlocked: isManuallyUnlocked,
+        endTime: manualUnlockEndTime ? manualUnlockEndTime.toISOString() : null
+    };
 });
 
 ipcMain.handle('admin-set-manual-unlock-state', (event, newState) => {
     isManuallyUnlocked = newState;
+    // When toggling manually (not timed), clear any timed unlock
+    if (!newState) {
+        manualUnlockEndTime = null;
+    }
     console.log(`Manual unlock state set to: ${isManuallyUnlocked}`);
 
     // Notify all windows of the change
     [mainWindow, ...additionalWindows].forEach(window => {
         if (window && !window.isDestroyed()) {
-            window.webContents.send('manual-unlock-state-changed', isManuallyUnlocked);
+            window.webContents.send('manual-unlock-state-changed', isManuallyUnlocked, manualUnlockEndTime ? manualUnlockEndTime.toISOString() : null);
         }
     });
 

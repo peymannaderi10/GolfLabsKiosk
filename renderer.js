@@ -10,6 +10,7 @@ let isCurrentlyLocked = null;
 let localBookings = []; // This is now the definitive in-memory store for the renderer
 let heartbeatInterval = null;
 let isManuallyUnlocked = false;
+let manualUnlockEndTime = null; // Track when timed unlock expires
 
 const LOCAL_CHECK_INTERVAL_MS = 5000;  // Check every 5 seconds
 
@@ -49,7 +50,7 @@ function setLockedState(isLocked, booking = null) {
     // Tell the main process to make the window click-through when unlocked
     window.electronAPI.setIgnoreMouseEvents(!isLocked);
 
-    // Always clear existing intervals to avoid multiple timers
+    // Clear existing intervals for local check and countdown (not heartbeat - that should always run)
     if (localCheckInterval) {
         clearInterval(localCheckInterval);
         localCheckInterval = null;
@@ -58,10 +59,7 @@ function setLockedState(isLocked, booking = null) {
         clearInterval(countdownInterval);
         countdownInterval = null;
     }
-    if (heartbeatInterval) {
-        clearInterval(heartbeatInterval);
-        heartbeatInterval = null;
-    }
+    // Note: heartbeat interval is NOT cleared here - it should continue running regardless of lock state
 
     if (isLocked) {
         lockScreen.style.display = 'flex';
@@ -115,6 +113,7 @@ function checkForActiveBooking(bookings) {
             id: 'manual-override',
             startTime: 'N/A',
             endTime: 'N/A',
+            endTimeISO: manualUnlockEndTime, // Store raw ISO timestamp for accurate countdown
             user: { name: 'Admin Override' }
         });
         return;
@@ -145,7 +144,10 @@ function updateCountdown() {
     if (!currentBooking) return;
 
     const now = new Date();
-    const endTime = parseTime(currentBooking.endTime);
+    // Use ISO timestamp if available (for manual override), otherwise parse the formatted time
+    const endTime = currentBooking.endTimeISO 
+        ? new Date(currentBooking.endTimeISO) 
+        : parseTime(currentBooking.endTime);
     const diff = endTime - now;
 
     if (diff <= 0) {
@@ -183,7 +185,9 @@ async function initialize() {
     console.log('Config loaded:', config);
     
     // Get the initial manual unlock state from the main process
-    isManuallyUnlocked = await window.electronAPI.getManualUnlockState();
+    const unlockState = await window.electronAPI.getManualUnlockState();
+    isManuallyUnlocked = unlockState.unlocked;
+    manualUnlockEndTime = unlockState.endTime;
     
     // Get the initial bookings from the main process's memory.
     const initialBookings = await window.electronAPI.getInitialBookings();
@@ -232,8 +236,9 @@ window.electronAPI.onBookingsUpdated((updatedBookings) => {
 });
 
 // Listen for manual unlock state changes
-window.electronAPI.onManualUnlockStateChanged((newState) => {
-    console.log(`Manual unlock state changed to: ${newState}`);
+window.electronAPI.onManualUnlockStateChanged((newState, endTime) => {
+    console.log(`Manual unlock state changed to: ${newState}, endTime: ${endTime}`);
     isManuallyUnlocked = newState;
+    manualUnlockEndTime = endTime;
     checkForActiveBooking(localBookings); // Re-evaluate lock state immediately
 }); 
