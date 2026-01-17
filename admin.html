@@ -2,6 +2,7 @@
 <html>
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Kiosk Admin Panel</title>
     <link rel="stylesheet" href="admin.css">
 
@@ -257,8 +258,8 @@
             </div>
 
             <div style="margin-top: 40px; padding-top: 30px; border-top: 1px solid rgba(255,255,255,0.1);">
-                <h3 style="color: #00A36C; font-size: 16px; margin-bottom: 15px; display: flex; align-items: center; gap: 8px;">
-                    <svg class="icon" viewBox="0 0 24 24" style="width: 20px; height: 20px; fill: currentColor;">
+                <h3 style="color: #00A36C; font-size: 18px; margin-bottom: 15px; display: flex; align-items: center; gap: 8px;">
+                    <svg class="icon" viewBox="0 0 24 24" style="width: 22px; height: 22px; fill: currentColor;">
                         <path d="M12,17A2,2 0 0,0 14,15C14,13.89 13.1,13 12,13A2,2 0 0,0 10,15A2,2 0 0,0 12,17M18,8A2,2 0 0,1 20,10V20A2,2 0 0,1 18,22H6A2,2 0 0,1 4,20V10C4,8.89 4.9,8 6,8H7V6A5,5 0 0,1 12,1A5,5 0 0,1 17,6V8H18M12,3A3,3 0 0,0 9,6V8H15V6A3,3 0 0,0 12,3Z"/>
                     </svg>
                     Change Admin Password
@@ -311,7 +312,7 @@
                     <span class="slider"></span>
                 </label>
             </div>
-            <p style="font-size: 12px; color: #aaa; margin-top: 10px;">
+            <p style="font-size: 14px; color: #aaa; margin-top: 10px;">
                 When enabled, the screen will be permanently unlocked, overriding any bookings. Disable to return to automatic booking-based control.
             </p>
         </div>
@@ -377,7 +378,7 @@
 
             <div class="unlock-section">
                 <div class="unlock-section-title">Timed Screen Unlock</div>
-                <p style="font-size: 12px; color: #aaa; margin-bottom: 15px;">
+                <p style="font-size: 14px; color: #aaa; margin-bottom: 15px;">
                     Temporarily unlock the screen for a specified duration. Will check against upcoming bookings to prevent conflicts.
                 </p>
                 <div class="unlock-controls">
@@ -428,8 +429,8 @@
             </div>
 
             <div style="margin-top: 30px;">
-                <h3 style="color: #00A36C; font-size: 16px; margin-bottom: 15px;">Cache Management</h3>
-                <p style="font-size: 12px; color: #aaa; margin-bottom: 15px;">
+                <h3 style="color: #00A36C; font-size: 18px; margin-bottom: 15px;">Cache Management</h3>
+                <p style="font-size: 14px; color: #aaa; margin-bottom: 15px;">
                     Clear the cached bookings and request fresh data from the server.
                 </p>
                 <button class="admin-button warning-button" onclick="clearCache()">
