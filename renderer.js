@@ -12,6 +12,26 @@ let heartbeatInterval = null;
 let isManuallyUnlocked = false;
 let manualUnlockEndTime = null; // Track when timed unlock expires
 
+// Session extension state machine
+// States: idle | loading | showing | confirming | processing | declined
+let extensionState = 'idle';
+let extensionOptions = null; // Cached options from API
+let extensionCardInfo = null; // Cached card info from API
+let selectedExtension = null; // Currently selected option { minutes, priceCents, priceFormatted }
+let isProcessingRemoteState = false; // Prevent broadcast loops
+
+// Broadcast extension state to all screens
+function broadcastExtensionState(state, extra = {}) {
+    if (isProcessingRemoteState) return; // Don't re-broadcast received state
+    window.electronAPI.broadcastExtensionState({
+        state,
+        options: extensionOptions,
+        cardInfo: extensionCardInfo,
+        selected: selectedExtension,
+        ...extra
+    });
+}
+
 const LOCAL_CHECK_INTERVAL_MS = 5000;  // Check every 5 seconds
 
 function logAccessEvent(action, success, booking = null) {
@@ -65,6 +85,9 @@ function setLockedState(isLocked, booking = null) {
         lockScreen.style.display = 'flex';
         unlockScreen.style.display = 'none';
         
+        // Reset extension state when screen locks
+        resetExtensionState();
+
         if (currentBooking) {
             logAccessEvent('session_ended', true, currentBooking);
         }
@@ -125,6 +148,8 @@ function checkForActiveBooking(bookings) {
     const now = new Date();
     const activeBooking = bookings.find(b => {
         if (b.bayId !== config.bayId) return false;
+        // Only consider confirmed bookings - ignore abandoned, cancelled, etc.
+        if (b.status !== 'confirmed') return false;
         
         const startTime = parseTime(b.startTime);
         const endTime = parseTime(b.endTime);
@@ -134,6 +159,18 @@ function checkForActiveBooking(bookings) {
 
     if (activeBooking) {
         console.log("Active booking found:", activeBooking);
+        
+        // Check if booking details changed (e.g., extension updated the endTime)
+        if (currentBooking && currentBooking.id === activeBooking.id) {
+            // Same booking - check if endTime changed
+            if (currentBooking.endTime !== activeBooking.endTime) {
+                console.log(`Booking extended: ${currentBooking.endTime} -> ${activeBooking.endTime}`);
+                currentBooking = activeBooking;
+                // Reset extension state so user can extend again if eligible
+                resetExtensionState();
+            }
+        }
+        
         setLockedState(false, activeBooking);
     } else {
         setLockedState(true);
@@ -171,6 +208,240 @@ function updateCountdown() {
     }
 
     countdown.textContent = countdownText;
+
+    // --- Extension upsell trigger ---
+    checkExtensionTrigger(diff);
+}
+
+// =====================================================
+// SESSION EXTENSION STATE MACHINE
+// =====================================================
+
+function getExtensionSettings() {
+    if (!config || !config.extensionSettings) {
+        return { enabled: false, triggerMinutes: 5, options: [15, 30, 60] };
+    }
+    return config.extensionSettings;
+}
+
+function checkExtensionTrigger(diffMs) {
+    const settings = getExtensionSettings();
+    if (!settings.enabled) return;
+    if (!currentBooking || currentBooking.id === 'manual-override') return;
+    if (extensionState !== 'idle') return;
+
+    const triggerMs = settings.triggerMinutes * 60 * 1000;
+    if (diffMs > triggerMs) return;
+
+    // Quick local check: is there enough gap for at least 15 min?
+    const currentEndTime = currentBooking.endTimeISO
+        ? new Date(currentBooking.endTimeISO)
+        : parseTime(currentBooking.endTime);
+
+    const nextBooking = localBookings.find(b => {
+        if (b.id === currentBooking.id) return false;
+        if (b.bayId !== config.bayId) return false;
+        // Only consider confirmed bookings as blocking
+        if (b.status !== 'confirmed') return false;
+        const bStart = parseTime(b.startTime);
+        // Use >= to catch back-to-back bookings (next starts exactly when current ends)
+        return bStart >= currentEndTime;
+    });
+
+    if (nextBooking) {
+        const nextStart = parseTime(nextBooking.startTime);
+        const gapMinutes = (nextStart - currentEndTime) / (1000 * 60);
+        if (gapMinutes < 15) {
+            console.log(`Extension skipped: only ${gapMinutes.toFixed(0)} min gap before next booking.`);
+            extensionState = 'declined';
+            return;
+        }
+    }
+
+    // Trigger the extension flow
+    console.log('Extension trigger reached. Fetching options...');
+    extensionState = 'loading';
+    fetchExtensionOptions();
+}
+
+async function fetchExtensionOptions() {
+    try {
+        const result = await window.electronAPI.getExtensionOptions(currentBooking.id);
+        console.log('Extension options received:', result);
+
+        if (!result.options || result.options.length === 0) {
+            console.log('No extension options available.');
+            extensionState = 'declined';
+            return;
+        }
+
+        extensionOptions = result.options;
+        extensionCardInfo = result.card;
+        extensionState = 'showing';
+        showExtensionBanner();
+        
+        // Broadcast to other screens
+        broadcastExtensionState('showing');
+
+        // Log that we offered the extension
+        logAccessEvent('extension_offered', true, currentBooking);
+    } catch (error) {
+        console.error('Failed to fetch extension options:', error);
+        extensionState = 'declined';
+    }
+}
+
+function showExtensionBanner() {
+    const banner = document.getElementById('extension-banner');
+    const optionsContainer = document.getElementById('extension-options');
+
+    // Build option buttons
+    optionsContainer.innerHTML = '';
+
+    if (!extensionCardInfo) {
+        // No card on file - show message
+        optionsContainer.innerHTML = '<div class="extension-no-card">Visit the front desk to extend your session</div>';
+    } else {
+        extensionOptions.forEach(opt => {
+            const btn = document.createElement('button');
+            btn.className = 'extension-option-btn';
+            btn.innerHTML = `<span class="option-duration">${opt.minutes} min</span><span class="option-price">${opt.priceFormatted}</span>`;
+            btn.addEventListener('click', () => selectExtensionOption(opt));
+            optionsContainer.appendChild(btn);
+        });
+    }
+
+    banner.classList.remove('extension-hidden');
+
+    // Wire up dismiss button
+    document.getElementById('extension-dismiss-btn').onclick = dismissExtension;
+
+    // Re-enable mouse events on the window so the banner is interactive
+    window.electronAPI.setIgnoreMouseEvents(false);
+}
+
+function selectExtensionOption(option) {
+    selectedExtension = option;
+    extensionState = 'confirming';
+
+    // Hide the banner, show confirmation
+    document.getElementById('extension-banner').classList.add('extension-hidden');
+
+    const brandLabel = extensionCardInfo.brand
+        ? extensionCardInfo.brand.charAt(0).toUpperCase() + extensionCardInfo.brand.slice(1)
+        : 'Card';
+
+    document.getElementById('extension-confirm-detail').textContent =
+        `Add ${option.minutes} minutes for ${option.priceFormatted}`;
+    document.getElementById('extension-confirm-card-info').textContent =
+        `Charging ${brandLabel} ending in ${extensionCardInfo.last4}`;
+
+    document.getElementById('extension-confirm').classList.remove('extension-hidden');
+
+    document.getElementById('extension-confirm-btn').onclick = confirmExtension;
+    document.getElementById('extension-cancel-btn').onclick = dismissExtension;
+    
+    // Broadcast to other screens
+    broadcastExtensionState('confirming');
+}
+
+async function confirmExtension() {
+    if (!selectedExtension || !currentBooking) return;
+
+    extensionState = 'processing';
+    document.getElementById('extension-confirm').classList.add('extension-hidden');
+
+    const statusEl = document.getElementById('extension-status');
+    const statusText = document.getElementById('extension-status-text');
+    statusText.textContent = 'Processing payment...';
+    statusText.classList.remove('error');
+    statusEl.classList.remove('extension-hidden');
+    
+    // Broadcast processing state
+    broadcastExtensionState('processing', { statusText: 'Processing payment...' });
+
+    try {
+        const result = await window.electronAPI.extendBooking(
+            currentBooking.id,
+            selectedExtension.minutes
+        );
+        console.log('Extension successful:', result);
+
+        const successMsg = `Extended! ${selectedExtension.minutes} min added.`;
+        statusText.textContent = successMsg;
+        
+        // Broadcast success state
+        broadcastExtensionState('success', { statusText: successMsg });
+
+        // Brief success message, then hide
+        setTimeout(() => {
+            statusEl.classList.add('extension-hidden');
+            resetExtensionState();
+            // Make window click-through again since the extension UI is gone
+            window.electronAPI.setIgnoreMouseEvents(true);
+            // Broadcast reset to idle
+            broadcastExtensionState('idle');
+        }, 2000);
+
+        // The WebSocket booking_update event will push the new endTime
+        // and checkForActiveBooking will update currentBooking automatically.
+
+    } catch (error) {
+        console.error('Extension failed:', error);
+        const errorMsg = error.message || 'Extension failed. Visit the front desk.';
+        statusText.textContent = errorMsg;
+        statusText.classList.add('error');
+        
+        // Broadcast error state
+        broadcastExtensionState('error', { statusText: errorMsg });
+
+        logAccessEvent('extension_payment_failed', false, currentBooking);
+
+        setTimeout(() => {
+            statusEl.classList.add('extension-hidden');
+            extensionState = 'declined';
+            // Restore click-through
+            window.electronAPI.setIgnoreMouseEvents(true);
+            // Broadcast declined state
+            broadcastExtensionState('declined');
+        }, 4000);
+    }
+}
+
+function dismissExtension() {
+    console.log('Extension dismissed by user.');
+    extensionState = 'declined';
+
+    document.getElementById('extension-banner').classList.add('extension-hidden');
+    document.getElementById('extension-confirm').classList.add('extension-hidden');
+    document.getElementById('extension-status').classList.add('extension-hidden');
+
+    logAccessEvent('extension_declined', true, currentBooking);
+
+    // Restore click-through
+    window.electronAPI.setIgnoreMouseEvents(true);
+
+    selectedExtension = null;
+    extensionOptions = null;
+    extensionCardInfo = null;
+    
+    // Broadcast to other screens
+    broadcastExtensionState('declined');
+}
+
+function resetExtensionState() {
+    extensionState = 'idle';
+    selectedExtension = null;
+    extensionOptions = null;
+    extensionCardInfo = null;
+
+    // Hide all extension UI
+    const banner = document.getElementById('extension-banner');
+    const confirm = document.getElementById('extension-confirm');
+    const status = document.getElementById('extension-status');
+    if (banner) banner.classList.add('extension-hidden');
+    if (confirm) confirm.classList.add('extension-hidden');
+    if (status) status.classList.add('extension-hidden');
 }
 
 // --- Main Application Logic ---
@@ -198,6 +469,71 @@ async function initialize() {
 
     // Start the heartbeat interval. This logic is unchanged.
     startHeartbeat();
+    
+    // Listen for extension state updates from other screens
+    window.electronAPI.onExtensionStateUpdate(handleRemoteExtensionState);
+}
+
+// Handle extension state broadcast from another screen
+function handleRemoteExtensionState(stateData) {
+    console.log('Received extension state from another screen:', stateData.state);
+    isProcessingRemoteState = true;
+    
+    // Update local state
+    extensionState = stateData.state;
+    extensionOptions = stateData.options;
+    extensionCardInfo = stateData.cardInfo;
+    selectedExtension = stateData.selected;
+    
+    // Update UI based on state
+    switch (stateData.state) {
+        case 'showing':
+            showExtensionBanner();
+            break;
+        case 'confirming':
+            // Show confirmation UI with the selected option
+            document.getElementById('extension-banner').classList.add('extension-hidden');
+            if (selectedExtension && extensionCardInfo) {
+                const brandLabel = extensionCardInfo.brand
+                    ? extensionCardInfo.brand.charAt(0).toUpperCase() + extensionCardInfo.brand.slice(1)
+                    : 'Card';
+                document.getElementById('extension-confirm-detail').textContent =
+                    `Add ${selectedExtension.minutes} minutes for ${selectedExtension.priceFormatted}`;
+                document.getElementById('extension-confirm-card-info').textContent =
+                    `Charging ${brandLabel} ending in ${extensionCardInfo.last4}`;
+                document.getElementById('extension-confirm').classList.remove('extension-hidden');
+                document.getElementById('extension-confirm-btn').onclick = confirmExtension;
+                document.getElementById('extension-cancel-btn').onclick = dismissExtension;
+            }
+            window.electronAPI.setIgnoreMouseEvents(false);
+            break;
+        case 'processing':
+            document.getElementById('extension-confirm').classList.add('extension-hidden');
+            document.getElementById('extension-status-text').textContent = stateData.statusText || 'Processing payment...';
+            document.getElementById('extension-status-text').classList.remove('error');
+            document.getElementById('extension-status').classList.remove('extension-hidden');
+            break;
+        case 'success':
+            document.getElementById('extension-status-text').textContent = stateData.statusText || 'Extended!';
+            document.getElementById('extension-status-text').classList.remove('error');
+            document.getElementById('extension-status').classList.remove('extension-hidden');
+            break;
+        case 'error':
+            document.getElementById('extension-status-text').textContent = stateData.statusText || 'Extension failed.';
+            document.getElementById('extension-status-text').classList.add('error');
+            document.getElementById('extension-status').classList.remove('extension-hidden');
+            break;
+        case 'declined':
+        case 'idle':
+            // Hide all extension UI
+            document.getElementById('extension-banner').classList.add('extension-hidden');
+            document.getElementById('extension-confirm').classList.add('extension-hidden');
+            document.getElementById('extension-status').classList.add('extension-hidden');
+            window.electronAPI.setIgnoreMouseEvents(true);
+            break;
+    }
+    
+    isProcessingRemoteState = false;
 }
 
 function startHeartbeat() {

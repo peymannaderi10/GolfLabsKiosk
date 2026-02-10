@@ -189,6 +189,15 @@ function populateConfigForm(config) {
     document.getElementById('apiBaseUrl').value = config.apiBaseUrl || '';
     document.getElementById('shellyIP').value = config.shellyIP || '';
     document.getElementById('timezone').value = config.timezone || '';
+
+    // Extension settings
+    const ext = config.extensionSettings || { enabled: true, triggerMinutes: 5, options: [15, 30, 45, 60] };
+    document.getElementById('extensionEnabled').checked = ext.enabled !== false;
+    document.getElementById('extensionTriggerMinutes').value = ext.triggerMinutes || 5;
+    document.getElementById('extensionOpt15').checked = (ext.options || []).includes(15);
+    document.getElementById('extensionOpt30').checked = (ext.options || []).includes(30);
+    document.getElementById('extensionOpt45').checked = (ext.options || []).includes(45);
+    document.getElementById('extensionOpt60').checked = (ext.options || []).includes(60);
 }
 
 function toggleConfigEdit() {
@@ -215,12 +224,24 @@ function toggleConfigEdit() {
 
 async function saveConfig() {
     try {
+        // Build extension options array from checkboxes
+        const extOptions = [];
+        if (document.getElementById('extensionOpt15').checked) extOptions.push(15);
+        if (document.getElementById('extensionOpt30').checked) extOptions.push(30);
+        if (document.getElementById('extensionOpt45').checked) extOptions.push(45);
+        if (document.getElementById('extensionOpt60').checked) extOptions.push(60);
+
         const newConfig = {
             bayId: document.getElementById('bayId').value.trim(),
             locationId: document.getElementById('locationId').value.trim(),
             apiBaseUrl: document.getElementById('apiBaseUrl').value.trim(),
             shellyIP: document.getElementById('shellyIP').value.trim(),
-            timezone: document.getElementById('timezone').value.trim()
+            timezone: document.getElementById('timezone').value.trim(),
+            extensionSettings: {
+                enabled: document.getElementById('extensionEnabled').checked,
+                triggerMinutes: parseInt(document.getElementById('extensionTriggerMinutes').value) || 5,
+                options: extOptions
+            }
         };
 
         const result = await window.electronAPI.adminSaveConfig(newConfig);

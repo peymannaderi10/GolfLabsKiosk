@@ -79,6 +79,12 @@ function loadConfig() {
         console.log('Admin password not found in config, using default: admin123');
     }
 
+    // Set default extension settings if not present
+    if (!config.extensionSettings) {
+        config.extensionSettings = { enabled: true, triggerMinutes: 5, options: [15, 30, 45, 60] };
+        console.log('Extension settings not found in config, using defaults');
+    }
+
   } catch (error) {
     console.error('FATAL: config.json is invalid or cannot be accessed.', error);
     dialog.showErrorBox(
@@ -870,6 +876,65 @@ ipcMain.handle('log-access', async (event, logData) => {
         }
         throw error;
     }
+});
+
+// --- Session Extension IPC Handlers ---
+
+ipcMain.handle('get-extension-options', async (event, bookingId) => {
+    if (!config) {
+        throw new Error('Kiosk config not loaded');
+    }
+    const url = `${config.apiBaseUrl}/bookings/${bookingId}/extension-options`;
+    console.log(`Fetching extension options from: ${url}`);
+
+    try {
+        const response = await axios.get(url);
+        console.log('Extension options response:', response.data);
+        return response.data;
+    } catch (error) {
+        console.error('Error fetching extension options:', error.message);
+        if (error.response) {
+            console.error('Extension options error details:', error.response.data);
+            throw new Error(error.response.data.error || error.message);
+        }
+        throw error;
+    }
+});
+
+ipcMain.handle('extend-booking', async (event, bookingId, extensionMinutes) => {
+    if (!config) {
+        throw new Error('Kiosk config not loaded');
+    }
+    const url = `${config.apiBaseUrl}/bookings/${bookingId}/extend`;
+    console.log(`Extending booking at: ${url} for ${extensionMinutes} minutes`);
+
+    try {
+        const response = await axios.post(url, {
+            extensionMinutes,
+            locationId: config.locationId,
+            bayId: config.bayId
+        });
+        console.log('Extend booking response:', response.data);
+        return response.data;
+    } catch (error) {
+        console.error('Error extending booking:', error.message);
+        if (error.response) {
+            console.error('Extend booking error details:', error.response.data);
+            throw new Error(error.response.data.error || error.message);
+        }
+        throw error;
+    }
+});
+
+// --- Extension State Broadcast (sync across all screens) ---
+ipcMain.on('extension-state-broadcast', (event, stateData) => {
+    console.log('Broadcasting extension state to all windows:', stateData.state);
+    const allWindows = [mainWindow, ...additionalWindows];
+    allWindows.forEach(window => {
+        if (window && !window.isDestroyed()) {
+            window.webContents.send('extension-state-update', stateData);
+        }
+    });
 });
 
 // --- NEW: Global error handling for packaged app ---

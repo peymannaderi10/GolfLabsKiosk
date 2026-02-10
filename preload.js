@@ -38,4 +38,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // System info
   getVersion: () => ipcRenderer.invoke('admin-get-version'),
   clearCache: () => ipcRenderer.invoke('admin-clear-cache'),
+
+  // Session extension
+  getExtensionOptions: (bookingId) => ipcRenderer.invoke('get-extension-options', bookingId),
+  extendBooking: (bookingId, minutes) => ipcRenderer.invoke('extend-booking', bookingId, minutes),
+  
+  // Extension state sync across screens
+  broadcastExtensionState: (stateData) => ipcRenderer.send('extension-state-broadcast', stateData),
+  onExtensionStateUpdate: (callback) => ipcRenderer.on('extension-state-update', (_event, stateData) => callback(stateData)),
 }); 

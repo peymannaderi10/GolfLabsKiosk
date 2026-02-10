@@ -226,36 +226,93 @@
             </div>
 
             <div id="config-form">
-                <div class="config-grid">
-                    <div class="config-field">
-                        <label for="bayId">Bay ID:</label>
-                        <input type="text" id="bayId" placeholder="UUID for the bay" disabled>
-                    </div>
-                    <div class="config-field">
-                        <label for="locationId">Location ID:</label>
-                        <input type="text" id="locationId" placeholder="UUID for the location" disabled>
-                    </div>
-                    <div class="config-field">
-                        <label for="apiBaseUrl">API Base URL:</label>
-                        <input type="url" id="apiBaseUrl" placeholder="https://api.example.com" disabled>
-                    </div>
-                    <div class="config-field">
-                        <label for="shellyIP">Shelly IP Address:</label>
-                        <input type="text" id="shellyIP" placeholder="192.168.1.100" disabled>
-                    </div>
-                    <div class="config-field">
-                        <label for="timezone">Timezone:</label>
-                        <input type="text" id="timezone" placeholder="America/New_York" disabled>
+                <!-- Kiosk Settings Section -->
+                <div style="margin-bottom: 30px;">
+                    <h3 style="color: #00A36C; font-size: 18px; margin-bottom: 15px; display: flex; align-items: center; gap: 8px;">
+                        <svg class="icon" viewBox="0 0 24 24" style="width: 22px; height: 22px; fill: currentColor;">
+                            <path d="M4,6H20V16H4M20,18A2,2 0 0,0 22,16V6C22,4.89 21.1,4 20,4H4C2.89,4 2,4.89 2,6V16A2,2 0 0,0 4,18H0V20H24V18H20Z"/>
+                        </svg>
+                        Kiosk Settings
+                    </h3>
+                    <div class="config-grid">
+                        <div class="config-field">
+                            <label for="bayId">Bay ID:</label>
+                            <input type="text" id="bayId" placeholder="UUID for the bay" disabled>
+                        </div>
+                        <div class="config-field">
+                            <label for="locationId">Location ID:</label>
+                            <input type="text" id="locationId" placeholder="UUID for the location" disabled>
+                        </div>
+                        <div class="config-field">
+                            <label for="apiBaseUrl">API Base URL:</label>
+                            <input type="url" id="apiBaseUrl" placeholder="https://api.example.com" disabled>
+                        </div>
+                        <div class="config-field">
+                            <label for="shellyIP">Shelly IP Address:</label>
+                            <input type="text" id="shellyIP" placeholder="192.168.1.100" disabled>
+                        </div>
+                        <div class="config-field">
+                            <label for="timezone">Timezone:</label>
+                            <input type="text" id="timezone" placeholder="America/New_York" disabled>
+                        </div>
                     </div>
                 </div>
-                <button class="admin-button" id="config-toggle-btn" onclick="toggleConfigEdit()" style="margin-top: 20px; width: 100%;">
+
+                <!-- Session Extension Settings Section -->
+                <div style="margin-bottom: 30px; padding-top: 20px; border-top: 1px solid rgba(255,255,255,0.1);">
+                    <h3 style="color: #00A36C; font-size: 18px; margin-bottom: 15px; display: flex; align-items: center; gap: 8px;">
+                        <svg class="icon" viewBox="0 0 24 24" style="width: 22px; height: 22px; fill: currentColor;">
+                            <path d="M12,20C7.59,20 4,16.41 4,12C4,7.59 7.59,4 12,4C16.41,4 20,7.59 20,12C20,16.41 16.41,20 12,20M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2M12.5,7V12.25L17,14.92L16.25,16.15L11,13V7H12.5Z"/>
+                        </svg>
+                        Session Extension Settings
+                    </h3>
+                    <p style="font-size: 14px; color: #aaa; margin-bottom: 15px;">
+                        When enabled, players will be offered to extend their session before it ends.
+                    </p>
+                    <div class="config-grid">
+                        <div class="config-field">
+                            <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
+                                <input type="checkbox" id="extensionEnabled" disabled style="width: 18px; height: 18px; accent-color: #00A36C;">
+                                Enable Extension Upsell
+                            </label>
+                        </div>
+                        <div class="config-field">
+                            <label for="extensionTriggerMinutes">Show offer at (minutes remaining):</label>
+                            <input type="number" id="extensionTriggerMinutes" min="1" max="30" value="5" disabled>
+                        </div>
+                        <div class="config-field">
+                            <label>Extension duration options:</label>
+                            <div style="display: flex; gap: 20px; margin-top: 8px;">
+                                <label style="display: flex; align-items: center; gap: 6px; cursor: pointer;">
+                                    <input type="checkbox" id="extensionOpt15" disabled style="width: 16px; height: 16px; accent-color: #00A36C;">
+                                    15 min
+                                </label>
+                                <label style="display: flex; align-items: center; gap: 6px; cursor: pointer;">
+                                    <input type="checkbox" id="extensionOpt30" disabled style="width: 16px; height: 16px; accent-color: #00A36C;">
+                                    30 min
+                                </label>
+                                <label style="display: flex; align-items: center; gap: 6px; cursor: pointer;">
+                                    <input type="checkbox" id="extensionOpt45" disabled style="width: 16px; height: 16px; accent-color: #00A36C;">
+                                    45 min
+                                </label>
+                                <label style="display: flex; align-items: center; gap: 6px; cursor: pointer;">
+                                    <input type="checkbox" id="extensionOpt60" disabled style="width: 16px; height: 16px; accent-color: #00A36C;">
+                                    60 min
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Edit/Save Button -->
+                <button class="admin-button" id="config-toggle-btn" onclick="toggleConfigEdit()" style="width: 100%;">
                     <svg class="icon" viewBox="0 0 24 24" id="config-btn-icon">
                         <path d="M20.71,7.04C21.1,6.65 21.1,6 20.71,5.63L18.37,3.29C18,2.9 17.35,2.9 16.96,3.29L15.12,5.12L18.87,8.87M3,17.25V21H6.75L17.81,9.93L14.06,6.18L3,17.25Z"/>
                     </svg>
                     <span id="config-btn-text">Edit Config</span>
                 </button>
                 <div id="config-message"></div>
-            </div>
+            </div> <!-- Close config-form -->
 
             <div style="margin-top: 40px; padding-top: 30px; border-top: 1px solid rgba(255,255,255,0.1);">
                 <h3 style="color: #00A36C; font-size: 18px; margin-bottom: 15px; display: flex; align-items: center; gap: 8px;">

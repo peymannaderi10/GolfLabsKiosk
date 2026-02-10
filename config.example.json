@@ -4,6 +4,11 @@
     "apiBaseUrl": "http://localhost:4242",
     "timezone": "America/New_York",
     "shellyIP": "XX.X.X.XXX",
-    "adminPassword": "admin123"
+    "adminPassword": "admin123",
+    "extensionSettings": {
+        "enabled": true,
+        "triggerMinutes": 5,
+        "options": [15, 30, 45, 60]
+    }
 }
  

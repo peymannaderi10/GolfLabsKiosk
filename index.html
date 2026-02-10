@@ -26,6 +26,37 @@
 
     <div id="unlock-screen">
         <div id="countdown"></div>
+
+        <!-- Session Extension Upsell Banner -->
+        <div id="extension-banner" class="extension-hidden">
+            <div class="extension-header">
+                <span class="extension-title">Extend your session?</span>
+            </div>
+            <div class="extension-options-row">
+                <button class="extension-decline-btn" id="extension-dismiss-btn">No Thanks</button>
+                <div class="extension-options" id="extension-options"></div>
+            </div>
+        </div>
+
+        <!-- Extension Confirmation Overlay -->
+        <div id="extension-confirm" class="extension-hidden">
+            <div class="extension-confirm-card">
+                <div class="extension-confirm-title">Confirm Extension</div>
+                <div class="extension-confirm-detail" id="extension-confirm-detail"></div>
+                <div class="extension-confirm-card-info" id="extension-confirm-card-info"></div>
+                <div class="extension-confirm-buttons">
+                    <button class="extension-btn extension-btn-confirm" id="extension-confirm-btn">Confirm</button>
+                    <button class="extension-btn extension-btn-cancel" id="extension-cancel-btn">Cancel</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Extension Status (processing / error) -->
+        <div id="extension-status" class="extension-hidden">
+            <div class="extension-status-card">
+                <div class="extension-status-text" id="extension-status-text">Processing...</div>
+            </div>
+        </div>
     </div>
 
     <script src="./renderer.js"></script>
