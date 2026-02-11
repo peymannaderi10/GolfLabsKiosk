@@ -103,6 +103,9 @@ function setLockedState(isLocked, booking = null) {
             checkForActiveBooking(localBookings);
         }, LOCAL_CHECK_INTERVAL_MS);
 
+        // Hide league UI when screen locks (no active booking)
+        loadLeagueForCurrentBooking();
+
     } else {
         lockScreen.style.display = 'none';
         unlockScreen.style.display = 'block';
@@ -115,6 +118,9 @@ function setLockedState(isLocked, booking = null) {
         updateCountdown();
         if(countdownInterval) clearInterval(countdownInterval);
         countdownInterval = setInterval(updateCountdown, 1000);
+
+        // Resolve league player from this booking's userId
+        loadLeagueForCurrentBooking();
     }
 }
 
@@ -577,4 +583,363 @@ window.electronAPI.onManualUnlockStateChanged((newState, endTime) => {
     isManuallyUnlocked = newState;
     manualUnlockEndTime = endTime;
     checkForActiveBooking(localBookings); // Re-evaluate lock state immediately
-}); 
+});
+
+// =====================================================
+// LEAGUE MODE — Score Entry System
+// =====================================================
+
+let leagueSettings = null;
+let leagueState = null;
+let leagueSelectedScore = null;
+let leaguePanelOpen = false;
+let leagueSubmitting = false;
+let leagueMiniLeaderboard = [];
+let leagueInitialized = false;    // true once event listeners are attached
+let leagueActiveUserId = null;    // tracks which booking user we've loaded for
+
+async function initializeLeagueMode() {
+    leagueSettings = await window.electronAPI.getLeagueSettings();
+
+    if (!leagueSettings || !leagueSettings.enabled || !leagueSettings.leagueId) {
+        console.log('League mode is disabled or not configured.');
+        return;
+    }
+
+    console.log('League mode enabled. Waiting for active booking to detect player...');
+
+    // One-time event listener setup
+    if (!leagueInitialized) {
+        leagueInitialized = true;
+
+        document.getElementById('league-bookmark').addEventListener('click', openLeaguePanel);
+        document.getElementById('league-close-btn').addEventListener('click', closeLeaguePanel);
+        document.getElementById('league-submit-btn').addEventListener('click', submitLeagueScore);
+        document.getElementById('league-summary-close').addEventListener('click', closeRoundSummary);
+
+        window.electronAPI.onLeagueScoreUpdate(handleLeagueScoreUpdate);
+        window.electronAPI.onLeagueStandingsUpdate(handleLeagueStandingsUpdate);
+    }
+
+    // Attempt to load for the current booking's user
+    await loadLeagueForCurrentBooking();
+}
+
+/**
+ * Called whenever the active booking changes. Resolves the league player
+ * from the booking's userId and fetches the league state.
+ */
+async function loadLeagueForCurrentBooking() {
+    if (!leagueSettings || !leagueSettings.enabled) return;
+
+    const userId = currentBooking?.userId || null;
+
+    // If no active booking or no userId, hide league UI
+    if (!userId) {
+        hideLeagueUI();
+        leagueActiveUserId = null;
+        leagueState = null;
+        return;
+    }
+
+    // Don't re-fetch if we already loaded for this exact user
+    if (userId === leagueActiveUserId && leagueState) return;
+
+    leagueActiveUserId = userId;
+    console.log(`League mode: Resolving player for booking userId ${userId}`);
+
+    // Fetch league state using the booking's userId
+    leagueState = await window.electronAPI.getLeagueState(userId);
+
+    if (!leagueState || !leagueState.week) {
+        console.log('No active league week. League bookmark hidden.');
+        hideLeagueUI();
+        return;
+    }
+
+    if (!leagueState.player) {
+        console.log('User is not enrolled in this league. League bookmark hidden.');
+        hideLeagueUI();
+        return;
+    }
+
+    if (leagueState.roundComplete) {
+        console.log('Round already complete for this player.');
+        hideLeagueUI();
+        return;
+    }
+
+    // Show the bookmark tab
+    document.getElementById('league-bookmark').classList.remove('league-hidden');
+
+    // Fetch initial mini leaderboard
+    fetchMiniLeaderboard();
+
+    console.log(`League mode ready. Player: ${leagueState.player?.displayName}, Next hole: ${leagueState.nextHole}`);
+}
+
+function hideLeagueUI() {
+    document.getElementById('league-bookmark').classList.add('league-hidden');
+    document.getElementById('league-score-panel').classList.add('league-hidden');
+    document.getElementById('league-round-summary').classList.add('league-hidden');
+    if (leaguePanelOpen) {
+        leaguePanelOpen = false;
+        if (!isCurrentlyLocked) {
+            window.electronAPI.setIgnoreMouseEvents(true);
+        }
+    }
+}
+
+function openLeaguePanel() {
+    if (leaguePanelOpen) return;
+    leaguePanelOpen = true;
+    leagueSelectedScore = null;
+
+    // Make window interactive
+    window.electronAPI.setIgnoreMouseEvents(false);
+
+    // Hide bookmark, show panel
+    document.getElementById('league-bookmark').classList.add('league-hidden');
+    const panel = document.getElementById('league-score-panel');
+    panel.classList.remove('league-hidden');
+
+    // Populate header
+    document.getElementById('league-player-name').textContent = leagueState.player?.displayName || 'Player';
+    document.getElementById('league-hole-label').textContent = `Hole ${leagueState.nextHole}`;
+
+    // Show par for the current hole (from course data)
+    const parLabel = document.getElementById('league-hole-par');
+    if (parLabel) {
+        const holePars = leagueState.course?.holePars;
+        if (holePars && holePars.length >= leagueState.nextHole) {
+            const holePar = holePars[leagueState.nextHole - 1];
+            parLabel.textContent = `Par ${holePar}`;
+            parLabel.classList.remove('league-hidden');
+        } else {
+            parLabel.textContent = '';
+            parLabel.classList.add('league-hidden');
+        }
+    }
+
+    // Generate score buttons (1-10) with par-relative color coding
+    const grid = document.getElementById('league-score-grid');
+    grid.innerHTML = '';
+    const holePars = leagueState.course?.holePars;
+    const currentPar = (holePars && holePars.length >= leagueState.nextHole) ? holePars[leagueState.nextHole - 1] : null;
+
+    for (let i = 1; i <= 10; i++) {
+        const btn = document.createElement('button');
+        btn.className = 'league-score-btn';
+        btn.textContent = i;
+
+        // Color-code relative to par
+        if (currentPar !== null) {
+            if (i < currentPar) btn.classList.add('league-score-under');      // under par (birdie/eagle)
+            else if (i === currentPar) btn.classList.add('league-score-par'); // par
+            else btn.classList.add('league-score-over');                      // over par (bogey+)
+        }
+
+        btn.addEventListener('click', () => selectLeagueScore(i, btn));
+        grid.appendChild(btn);
+    }
+
+    // Hide submit button until score is selected
+    document.getElementById('league-submit-btn').classList.add('league-hidden');
+
+    // Refresh mini leaderboard
+    updateMiniLeaderboard();
+}
+
+function closeLeaguePanel() {
+    leaguePanelOpen = false;
+    leagueSelectedScore = null;
+
+    document.getElementById('league-score-panel').classList.add('league-hidden');
+
+    // Show bookmark again (unless round is complete)
+    if (!leagueState?.roundComplete) {
+        document.getElementById('league-bookmark').classList.remove('league-hidden');
+    }
+
+    // Restore click-through if screen is unlocked
+    if (!isCurrentlyLocked) {
+        window.electronAPI.setIgnoreMouseEvents(true);
+    }
+}
+
+function selectLeagueScore(score, btnElement) {
+    leagueSelectedScore = score;
+
+    // Update visual selection
+    document.querySelectorAll('.league-score-btn').forEach(btn => btn.classList.remove('selected'));
+    btnElement.classList.add('selected');
+
+    // Show submit button
+    document.getElementById('league-submit-btn').classList.remove('league-hidden');
+}
+
+async function submitLeagueScore() {
+    if (leagueSelectedScore === null || leagueSubmitting) return;
+    leagueSubmitting = true;
+
+    const submitBtn = document.getElementById('league-submit-btn');
+    submitBtn.textContent = 'Submitting...';
+    submitBtn.disabled = true;
+
+    try {
+        const scoreData = {
+            leagueWeekId: leagueState.week.id,
+            leaguePlayerId: leagueState.player.id,
+            holeNumber: leagueState.nextHole,
+            strokes: leagueSelectedScore,
+            bayId: config.bayId,
+            enteredVia: 'kiosk',
+        };
+
+        const result = await window.electronAPI.submitLeagueScore(leagueSettings.leagueId, scoreData);
+        console.log('Score submitted:', result);
+
+        // Show toast
+        showLeagueToast(`Hole ${leagueState.nextHole}: ${leagueSelectedScore} strokes`);
+
+        // Close panel
+        closeLeaguePanel();
+
+        // Update state
+        if (result.round_complete) {
+            // Show round summary
+            leagueState.roundComplete = true;
+            document.getElementById('league-bookmark').classList.add('league-hidden');
+            showRoundSummary(result.round_gross);
+        } else {
+            // Advance to next hole
+            leagueState.nextHole = result.holes_entered + 1;
+            leagueState.scores.push({
+                hole_number: scoreData.holeNumber,
+                strokes: leagueSelectedScore,
+            });
+        }
+
+    } catch (error) {
+        console.error('Failed to submit score:', error);
+        showLeagueToast('Error submitting score!');
+    } finally {
+        leagueSubmitting = false;
+        submitBtn.textContent = 'Submit Score';
+        submitBtn.disabled = false;
+    }
+}
+
+function showLeagueToast(message) {
+    const toast = document.getElementById('league-toast');
+    document.getElementById('league-toast-content').textContent = message;
+    toast.classList.remove('league-hidden');
+
+    setTimeout(() => {
+        toast.classList.add('league-hidden');
+    }, 2500);
+}
+
+function showRoundSummary(grossScore) {
+    const handicap = leagueState.player?.handicap || 0;
+    const netScore = Math.round((grossScore - handicap) * 10) / 10;
+
+    document.getElementById('league-summary-gross').textContent = grossScore;
+    document.getElementById('league-summary-net').textContent = netScore;
+    document.getElementById('league-summary-rank').textContent = '--'; // Will update from leaderboard
+
+    document.getElementById('league-round-summary').classList.remove('league-hidden');
+
+    // Make window interactive for the summary
+    window.electronAPI.setIgnoreMouseEvents(false);
+}
+
+function closeRoundSummary() {
+    document.getElementById('league-round-summary').classList.add('league-hidden');
+
+    // Restore click-through
+    if (!isCurrentlyLocked) {
+        window.electronAPI.setIgnoreMouseEvents(true);
+    }
+}
+
+async function fetchMiniLeaderboard() {
+    if (!leagueSettings || !leagueSettings.leagueId) return;
+
+    try {
+        leagueMiniLeaderboard = await window.electronAPI.getLeagueLeaderboard(leagueSettings.leagueId);
+        updateMiniLeaderboard();
+    } catch (error) {
+        console.error('Failed to fetch mini leaderboard:', error);
+    }
+}
+
+function updateMiniLeaderboard() {
+    const list = document.getElementById('league-mini-list');
+    if (!list) return;
+
+    const top5 = (leagueMiniLeaderboard || []).slice(0, 5);
+
+    if (top5.length === 0) {
+        list.innerHTML = '<div style="color: rgba(255,255,255,0.4); font-size: 13px; padding: 8px;">No scores yet</div>';
+        return;
+    }
+
+    list.innerHTML = top5.map(entry => {
+        const isMe = entry.playerId === leagueState?.player?.id;
+        return `
+            <div class="league-mini-row ${isMe ? 'highlight' : ''}">
+                <span class="league-mini-rank">${entry.rank}</span>
+                <span class="league-mini-name">${entry.displayName}</span>
+                <span class="league-mini-score">${entry.todayGross || '-'}</span>
+                <span class="league-mini-thru">${entry.thru > 0 ? `thru ${entry.thru}` : ''}</span>
+            </div>
+        `;
+    }).join('');
+}
+
+function handleLeagueScoreUpdate(payload) {
+    console.log('Real-time league score update:', payload);
+
+    // Update mini leaderboard in-place
+    const existing = leagueMiniLeaderboard.find(e => e.playerId === payload.player.id);
+    if (existing) {
+        existing.todayGross = payload.roundGross;
+        existing.thru = payload.holesCompleted;
+    } else {
+        leagueMiniLeaderboard.push({
+            rank: leagueMiniLeaderboard.length + 1,
+            playerId: payload.player.id,
+            displayName: payload.player.displayName,
+            handicap: payload.player.handicap,
+            todayGross: payload.roundGross,
+            todayNet: 0,
+            thru: payload.holesCompleted,
+            totalHoles: payload.totalHoles,
+            seasonGross: 0,
+            seasonNet: 0,
+            weeksPlayed: 0,
+        });
+    }
+
+    // Re-sort by today's gross
+    leagueMiniLeaderboard.sort((a, b) => {
+        if (a.thru > 0 && b.thru === 0) return -1;
+        if (a.thru === 0 && b.thru > 0) return 1;
+        return a.todayGross - b.todayGross;
+    });
+
+    leagueMiniLeaderboard.forEach((e, i) => e.rank = i + 1);
+
+    updateMiniLeaderboard();
+}
+
+function handleLeagueStandingsUpdate(payload) {
+    console.log('League standings update:', payload);
+    // Refresh full leaderboard from server
+    fetchMiniLeaderboard();
+}
+
+// Initialize league mode after main initialization
+// Event listeners are set up once; actual player resolution happens when a booking becomes active.
+initializeLeagueMode(); 

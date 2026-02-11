@@ -85,6 +85,12 @@ function loadConfig() {
         console.log('Extension settings not found in config, using defaults');
     }
 
+    // Set default league settings if not present
+    if (!config.leagueSettings) {
+        config.leagueSettings = { enabled: false, leagueId: '' };
+        console.log('League settings not found in config, using defaults');
+    }
+
   } catch (error) {
     console.error('FATAL: config.json is invalid or cannot be accessed.', error);
     dialog.showErrorBox(
@@ -255,6 +261,12 @@ function connectToWebSocket() {
 
     // Request initial data dump upon connection
     socket.emit('request_initial_bookings', { locationId, bayId });
+
+    // If league mode is enabled, join the league room
+    if (config.leagueSettings && config.leagueSettings.enabled && config.leagueSettings.leagueId) {
+      console.log(`League mode enabled. Joining league room for league: ${config.leagueSettings.leagueId}`);
+      socket.emit('register_league', { locationId, leagueId: config.leagueSettings.leagueId });
+    }
   });
 
   socket.on('disconnect', (reason) => {
@@ -304,6 +316,25 @@ function connectToWebSocket() {
         }
       });
     }
+  });
+
+  // --- League Mode: Listen for real-time score and standings updates ---
+  socket.on('league_score_update', (payload) => {
+    console.log('Received league score update:', payload);
+    [mainWindow, ...additionalWindows].forEach(window => {
+      if (window && !window.isDestroyed()) {
+        window.webContents.send('league-score-update', payload);
+      }
+    });
+  });
+
+  socket.on('league_standings_update', (payload) => {
+    console.log('Received league standings update:', payload);
+    [mainWindow, ...additionalWindows].forEach(window => {
+      if (window && !window.isDestroyed()) {
+        window.webContents.send('league-standings-update', payload);
+      }
+    });
   });
 
   // Listener for door unlock commands
@@ -935,6 +966,73 @@ ipcMain.on('extension-state-broadcast', (event, stateData) => {
             window.webContents.send('extension-state-update', stateData);
         }
     });
+});
+
+// --- League Mode IPC Handlers ---
+
+ipcMain.handle('get-league-settings', () => {
+    return config ? config.leagueSettings : { enabled: false, leagueId: '' };
+});
+
+ipcMain.handle('get-league-state', async (event, userId) => {
+    if (!config || !config.leagueSettings || !config.leagueSettings.enabled) {
+        return null;
+    }
+    const { leagueId } = config.leagueSettings;
+    if (!leagueId || !userId) return null;
+
+    try {
+        const url = `${config.apiBaseUrl}/leagues/${leagueId}/kiosk-state?userId=${userId}`;
+        console.log(`Fetching league state for userId ${userId} from: ${url}`);
+        const response = await axios.get(url);
+        return response.data;
+    } catch (error) {
+        console.error('Error fetching league state:', error.message);
+        if (error.response) {
+            console.error('League state error details:', error.response.data);
+        }
+        return null;
+    }
+});
+
+ipcMain.handle('submit-league-score', async (event, leagueId, scoreData) => {
+    if (!config) {
+        throw new Error('Kiosk config not loaded');
+    }
+    const url = `${config.apiBaseUrl}/leagues/${leagueId}/scores`;
+    console.log(`Submitting league score to: ${url}`, scoreData);
+
+    try {
+        const response = await axios.post(url, scoreData);
+        console.log('League score response:', response.data);
+        return response.data;
+    } catch (error) {
+        console.error('Error submitting league score:', error.message);
+        if (error.response) {
+            console.error('League score error details:', error.response.data);
+            throw new Error(error.response.data.error || error.message);
+        }
+        throw error;
+    }
+});
+
+ipcMain.handle('get-league-leaderboard', async (event, leagueId) => {
+    if (!config) {
+        throw new Error('Kiosk config not loaded');
+    }
+    const url = `${config.apiBaseUrl}/leagues/${leagueId}/leaderboard`;
+    console.log(`Fetching league leaderboard from: ${url}`);
+
+    try {
+        const response = await axios.get(url);
+        return response.data;
+    } catch (error) {
+        console.error('Error fetching league leaderboard:', error.message);
+        if (error.response) {
+            throw new Error(error.response.data.error || error.message);
+        }
+        throw error;
+    }
 });
 
 // --- NEW: Global error handling for packaged app ---

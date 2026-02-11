@@ -304,6 +304,31 @@
                     </div>
                 </div>
 
+                <!-- League Mode Settings Section -->
+                <div style="margin-bottom: 30px; padding-top: 20px; border-top: 1px solid rgba(255,255,255,0.1);">
+                    <h3 style="color: #00A36C; font-size: 18px; margin-bottom: 15px; display: flex; align-items: center; gap: 8px;">
+                        <svg class="icon" viewBox="0 0 24 24" style="width: 22px; height: 22px; fill: currentColor;">
+                            <path d="M5.8 21L7.4 14L2 9.2L9.2 8.6L12 2L14.8 8.6L22 9.2L16.6 14L18.2 21L12 17.3L5.8 21Z"/>
+                        </svg>
+                        League Mode Settings
+                    </h3>
+                    <p style="font-size: 14px; color: #aaa; margin-bottom: 15px;">
+                        When enabled, this bay enters league mode. Players can enter scores via the kiosk overlay and the leaderboard updates in real-time. The current player is automatically detected from the active booking.
+                    </p>
+                    <div class="config-grid">
+                        <div class="config-field">
+                            <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
+                                <input type="checkbox" id="leagueModeEnabled" disabled style="width: 18px; height: 18px; accent-color: #00A36C;">
+                                Enable League Mode
+                            </label>
+                        </div>
+                        <div class="config-field">
+                            <label for="leagueId">League ID:</label>
+                            <input type="text" id="leagueId" placeholder="UUID of the active league" disabled>
+                        </div>
+                    </div>
+                </div>
+
                 <!-- Edit/Save Button -->
                 <button class="admin-button" id="config-toggle-btn" onclick="toggleConfigEdit()" style="width: 100%;">
                     <svg class="icon" viewBox="0 0 24 24" id="config-btn-icon">

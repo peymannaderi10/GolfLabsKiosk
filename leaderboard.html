@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>League Leaderboard</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background: #0a0a0f;
+            color: white;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            overflow: hidden;
+            height: 100vh;
+        }
+
+        .leaderboard-container {
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            padding: 32px 48px;
+        }
+
+        /* Header */
+        .lb-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 32px;
+            padding-bottom: 24px;
+            border-bottom: 2px solid rgba(0, 163, 108, 0.3);
+        }
+
+        .lb-title {
+            font-size: 42px;
+            font-weight: 800;
+            color: white;
+            letter-spacing: -0.5px;
+        }
+
+        .lb-subtitle {
+            font-size: 18px;
+            color: rgba(255, 255, 255, 0.5);
+            margin-top: 4px;
+        }
+
+        .lb-week-badge {
+            background: linear-gradient(135deg, #00A36C, #008855);
+            padding: 12px 28px;
+            border-radius: 12px;
+            font-size: 20px;
+            font-weight: 700;
+            box-shadow: 0 4px 20px rgba(0, 163, 108, 0.3);
+        }
+
+        .lb-live-dot {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            background: #ff4444;
+            border-radius: 50%;
+            margin-right: 8px;
+            animation: livePulse 1.5s ease-in-out infinite;
+        }
+
+        @keyframes livePulse {
+            0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(255, 68, 68, 0.6); }
+            50% { opacity: 0.7; box-shadow: 0 0 0 8px rgba(255, 68, 68, 0); }
+        }
+
+        /* Table */
+        .lb-table {
+            flex: 1;
+            overflow: hidden;
+        }
+
+        .lb-table-header {
+            display: grid;
+            grid-template-columns: 60px 1fr 80px 80px 80px 80px 100px;
+            gap: 8px;
+            padding: 12px 16px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 10px;
+            margin-bottom: 8px;
+            font-size: 13px;
+            font-weight: 600;
+            color: rgba(255, 255, 255, 0.4);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .lb-table-body {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .lb-row {
+            display: grid;
+            grid-template-columns: 60px 1fr 80px 80px 80px 80px 100px;
+            gap: 8px;
+            padding: 14px 16px;
+            border-radius: 10px;
+            background: rgba(255, 255, 255, 0.02);
+            align-items: center;
+            transition: background 0.3s ease, transform 0.3s ease;
+        }
+
+        .lb-row.updated {
+            background: rgba(0, 163, 108, 0.15);
+            transform: scale(1.01);
+        }
+
+        .lb-row:nth-child(1) .lb-col-rank {
+            color: #FFD700;
+        }
+
+        .lb-row:nth-child(2) .lb-col-rank {
+            color: #C0C0C0;
+        }
+
+        .lb-row:nth-child(3) .lb-col-rank {
+            color: #CD7F32;
+        }
+
+        .lb-col-rank {
+            font-size: 24px;
+            font-weight: 800;
+            color: #00A36C;
+            text-align: center;
+        }
+
+        .lb-col-player {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .lb-player-name {
+            font-size: 20px;
+            font-weight: 600;
+        }
+
+        .lb-player-hcp {
+            font-size: 13px;
+            color: rgba(255, 255, 255, 0.4);
+        }
+
+        .lb-col-number {
+            font-size: 22px;
+            font-weight: 700;
+            text-align: center;
+            font-variant-numeric: tabular-nums;
+        }
+
+        .lb-col-thru {
+            font-size: 16px;
+            text-align: center;
+            color: rgba(255, 255, 255, 0.5);
+        }
+
+        .lb-col-season {
+            font-size: 18px;
+            font-weight: 600;
+            text-align: center;
+            color: rgba(255, 255, 255, 0.6);
+        }
+
+        /* Empty state */
+        .lb-empty {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            color: rgba(255, 255, 255, 0.3);
+        }
+
+        /* Footer */
+        .lb-footer {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding-top: 16px;
+            margin-top: 16px;
+            border-top: 1px solid rgba(255, 255, 255, 0.05);
+            font-size: 14px;
+            color: rgba(255, 255, 255, 0.25);
+        }
+
+        /* Auto-scroll container */
+        .lb-scroll-container {
+            flex: 1;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .lb-scroll-inner {
+            transition: transform 0.5s ease;
+        }
+    </style>
+</head>
+<body>
+    <div class="leaderboard-container">
+        <div class="lb-header">
+            <div>
+                <div class="lb-title" id="lb-title">League Leaderboard</div>
+                <div class="lb-subtitle" id="lb-subtitle">Loading...</div>
+            </div>
+            <div class="lb-week-badge" id="lb-week-badge">
+                <span class="lb-live-dot"></span>
+                LIVE
+            </div>
+        </div>
+
+        <div class="lb-table">
+            <div class="lb-table-header">
+                <div>Rank</div>
+                <div>Player</div>
+                <div style="text-align: center;">Gross</div>
+                <div style="text-align: center;">Net</div>
+                <div style="text-align: center;">Thru</div>
+                <div style="text-align: center;">Season</div>
+                <div style="text-align: center;">Weeks</div>
+            </div>
+            <div class="lb-scroll-container">
+                <div class="lb-table-body lb-scroll-inner" id="lb-table-body">
+                    <!-- Rows populated dynamically -->
+                </div>
+            </div>
+        </div>
+
+        <div class="lb-footer">
+            <span>Powered by Golf Labs</span>
+            <span id="lb-last-update">--</span>
+        </div>
+    </div>
+
+    <script src="leaderboard.js"></script>
+</body>
+</html>

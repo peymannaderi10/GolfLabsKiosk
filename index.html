@@ -59,6 +59,77 @@
         </div>
     </div>
 
+    <!-- =====================================================
+         LEAGUE MODE: Score Entry Bookmark Tab + Overlay
+         ===================================================== -->
+
+    <!-- Bookmark Tab (always visible in league mode, anchored to right edge) -->
+    <div id="league-bookmark" class="league-hidden">
+        <div class="league-bookmark-icon">
+            <svg viewBox="0 0 24 24" width="28" height="28" fill="white">
+                <path d="M14.4,6L14,4H5V21L12,18L19,21V11.35C18.37,11.78 17.7,12 17,12A5,5 0 0,1 12,7C12,6.31 12.18,5.59 12.5,5L14.4,6M17,10A3,3 0 0,0 20,7A3,3 0 0,0 17,4A3,3 0 0,0 14,7A3,3 0 0,0 17,10Z"/>
+            </svg>
+        </div>
+        <span class="league-bookmark-text">Enter Score</span>
+    </div>
+
+    <!-- Score Entry Panel (slides in from right) -->
+    <div id="league-score-panel" class="league-hidden">
+        <div class="league-panel-header">
+            <div class="league-player-info">
+                <div class="league-player-name" id="league-player-name">Player</div>
+                <div class="league-hole-label" id="league-hole-label">Hole 1</div>
+                <div class="league-hole-par league-hidden" id="league-hole-par">Par 4</div>
+            </div>
+            <button class="league-close-btn" id="league-close-btn">
+                <svg viewBox="0 0 24 24" width="24" height="24" fill="white">
+                    <path d="M19,6.41L17.59,5L12,10.59L6.41,5L5,6.41L10.59,12L5,17.59L6.41,19L12,13.41L17.59,19L19,17.59L13.41,12L19,6.41Z"/>
+                </svg>
+            </button>
+        </div>
+
+        <div class="league-score-grid" id="league-score-grid">
+            <!-- Score buttons 1-10 generated dynamically -->
+        </div>
+
+        <button class="league-submit-btn league-hidden" id="league-submit-btn">Submit Score</button>
+
+        <!-- Mini Leaderboard -->
+        <div class="league-mini-leaderboard">
+            <div class="league-mini-title">Live Leaderboard</div>
+            <div class="league-mini-list" id="league-mini-list">
+                <!-- Populated dynamically -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Score Confirmation Toast -->
+    <div id="league-toast" class="league-hidden">
+        <div class="league-toast-content" id="league-toast-content">Score saved!</div>
+    </div>
+
+    <!-- Round Summary Card (shown after all holes) -->
+    <div id="league-round-summary" class="league-hidden">
+        <div class="league-summary-card">
+            <div class="league-summary-title">Round Complete!</div>
+            <div class="league-summary-stats">
+                <div class="league-summary-stat">
+                    <div class="league-summary-label">Gross</div>
+                    <div class="league-summary-value" id="league-summary-gross">--</div>
+                </div>
+                <div class="league-summary-stat">
+                    <div class="league-summary-label">Net</div>
+                    <div class="league-summary-value" id="league-summary-net">--</div>
+                </div>
+                <div class="league-summary-stat">
+                    <div class="league-summary-label">Rank</div>
+                    <div class="league-summary-value" id="league-summary-rank">--</div>
+                </div>
+            </div>
+            <button class="league-summary-close" id="league-summary-close">Close</button>
+        </div>
+    </div>
+
     <script src="./renderer.js"></script>
 </body>
 </html> 

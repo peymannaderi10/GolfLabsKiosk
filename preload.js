@@ -46,4 +46,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // Extension state sync across screens
   broadcastExtensionState: (stateData) => ipcRenderer.send('extension-state-broadcast', stateData),
   onExtensionStateUpdate: (callback) => ipcRenderer.on('extension-state-update', (_event, stateData) => callback(stateData)),
+
+  // League mode APIs
+  getLeagueSettings: () => ipcRenderer.invoke('get-league-settings'),
+  getLeagueState: (userId) => ipcRenderer.invoke('get-league-state', userId),
+  submitLeagueScore: (leagueId, scoreData) => ipcRenderer.invoke('submit-league-score', leagueId, scoreData),
+  getLeagueLeaderboard: (leagueId) => ipcRenderer.invoke('get-league-leaderboard', leagueId),
+  onLeagueScoreUpdate: (callback) => ipcRenderer.on('league-score-update', (_event, payload) => callback(payload)),
+  onLeagueStandingsUpdate: (callback) => ipcRenderer.on('league-standings-update', (_event, payload) => callback(payload)),
 }); 

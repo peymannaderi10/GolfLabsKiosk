@@ -428,4 +428,362 @@ html, body {
     height: 4px;
     background: linear-gradient(90deg, transparent, hsl(var(--primary)), transparent);
     border-radius: 2px;
+}
+
+/* =====================================================
+   LEAGUE MODE STYLES
+   ===================================================== */
+
+.league-hidden {
+    display: none !important;
+}
+
+/* Bookmark Tab - anchored to right edge */
+#league-bookmark {
+    position: fixed;
+    right: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 60px;
+    background: linear-gradient(135deg, #00A36C, #008855);
+    border-radius: 12px 0 0 12px;
+    padding: 16px 8px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    z-index: 1000;
+    box-shadow: -4px 0 20px rgba(0, 163, 108, 0.4);
+    transition: width 0.2s ease, box-shadow 0.2s ease;
+}
+
+#league-bookmark:hover {
+    width: 70px;
+    box-shadow: -4px 0 30px rgba(0, 163, 108, 0.6);
+}
+
+.league-bookmark-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.league-bookmark-text {
+    color: white;
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    writing-mode: vertical-rl;
+    text-orientation: mixed;
+    white-space: nowrap;
+}
+
+/* Score Entry Panel */
+#league-score-panel {
+    position: fixed;
+    right: 0;
+    top: 0;
+    width: 400px;
+    height: 100vh;
+    background: rgba(15, 15, 20, 0.97);
+    border-left: 2px solid #00A36C;
+    z-index: 1001;
+    display: flex;
+    flex-direction: column;
+    padding: 24px;
+    box-shadow: -10px 0 40px rgba(0, 0, 0, 0.5);
+    animation: slideInRight 0.3s ease;
+    overflow-y: auto;
+}
+
+@keyframes slideInRight {
+    from { transform: translateX(100%); }
+    to { transform: translateX(0); }
+}
+
+.league-panel-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 24px;
+}
+
+.league-player-info {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.league-player-name {
+    font-size: 22px;
+    font-weight: 700;
+    color: white;
+}
+
+.league-hole-label {
+    font-size: 32px;
+    font-weight: 800;
+    color: #00A36C;
+}
+
+.league-close-btn {
+    background: rgba(255, 255, 255, 0.1);
+    border: none;
+    border-radius: 8px;
+    padding: 8px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.2s;
+}
+
+.league-close-btn:hover {
+    background: rgba(255, 255, 255, 0.2);
+}
+
+/* Score Buttons Grid */
+.league-score-grid {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 10px;
+    margin-bottom: 20px;
+}
+
+.league-score-btn {
+    width: 100%;
+    aspect-ratio: 1;
+    min-height: 64px;
+    border: 2px solid rgba(255, 255, 255, 0.15);
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.05);
+    color: white;
+    font-size: 28px;
+    font-weight: 700;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.15s ease;
+}
+
+.league-score-btn:hover {
+    border-color: #00A36C;
+    background: rgba(0, 163, 108, 0.15);
+}
+
+.league-score-btn.selected {
+    border-color: #00A36C;
+    background: #00A36C;
+    color: white;
+    box-shadow: 0 0 20px rgba(0, 163, 108, 0.4);
+}
+
+/* Par-relative color coding for score buttons */
+.league-score-btn.league-score-par {
+    border-color: rgba(0, 163, 108, 0.6);
+    background: rgba(0, 163, 108, 0.1);
+}
+.league-score-btn.league-score-under {
+    border-color: rgba(59, 130, 246, 0.6);
+    background: rgba(59, 130, 246, 0.1);
+}
+.league-score-btn.league-score-over {
+    border-color: rgba(255, 255, 255, 0.15);
+}
+
+/* Par label next to hole number */
+.league-hole-par {
+    font-size: 14px;
+    color: rgba(0, 163, 108, 0.9);
+    font-weight: 600;
+    margin-top: 2px;
+}
+
+/* Submit Button */
+.league-submit-btn {
+    width: 100%;
+    padding: 16px;
+    background: #00A36C;
+    color: white;
+    border: none;
+    border-radius: 12px;
+    font-size: 18px;
+    font-weight: 700;
+    cursor: pointer;
+    margin-bottom: 24px;
+    transition: background 0.2s;
+}
+
+.league-submit-btn:hover {
+    background: #008855;
+}
+
+.league-submit-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+/* Mini Leaderboard */
+.league-mini-leaderboard {
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+    padding-top: 16px;
+    flex: 1;
+}
+
+.league-mini-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: #00A36C;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 12px;
+}
+
+.league-mini-list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.league-mini-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 12px;
+    background: rgba(255, 255, 255, 0.03);
+    border-radius: 8px;
+    font-size: 14px;
+    color: rgba(255, 255, 255, 0.8);
+}
+
+.league-mini-row.highlight {
+    background: rgba(0, 163, 108, 0.15);
+    border: 1px solid rgba(0, 163, 108, 0.3);
+}
+
+.league-mini-rank {
+    font-weight: 700;
+    color: #00A36C;
+    width: 24px;
+}
+
+.league-mini-name {
+    flex: 1;
+    margin-left: 8px;
+}
+
+.league-mini-score {
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+}
+
+.league-mini-thru {
+    color: rgba(255, 255, 255, 0.5);
+    font-size: 12px;
+    margin-left: 8px;
+    width: 40px;
+    text-align: right;
+}
+
+/* Toast Notification */
+#league-toast {
+    position: fixed;
+    top: 40px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 1002;
+    animation: toastSlideDown 0.3s ease;
+}
+
+@keyframes toastSlideDown {
+    from { transform: translateX(-50%) translateY(-100%); opacity: 0; }
+    to { transform: translateX(-50%) translateY(0); opacity: 1; }
+}
+
+.league-toast-content {
+    background: #00A36C;
+    color: white;
+    padding: 16px 32px;
+    border-radius: 12px;
+    font-size: 20px;
+    font-weight: 700;
+    box-shadow: 0 8px 30px rgba(0, 163, 108, 0.4);
+}
+
+/* Round Summary */
+#league-round-summary {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: rgba(0, 0, 0, 0.85);
+    z-index: 1003;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.league-summary-card {
+    background: rgba(20, 20, 25, 0.98);
+    border: 2px solid #00A36C;
+    border-radius: 20px;
+    padding: 48px;
+    text-align: center;
+    box-shadow: 0 0 60px rgba(0, 163, 108, 0.3);
+    min-width: 400px;
+}
+
+.league-summary-title {
+    font-size: 36px;
+    font-weight: 800;
+    color: #00A36C;
+    margin-bottom: 32px;
+}
+
+.league-summary-stats {
+    display: flex;
+    gap: 40px;
+    justify-content: center;
+    margin-bottom: 32px;
+}
+
+.league-summary-stat {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+}
+
+.league-summary-label {
+    font-size: 14px;
+    color: rgba(255, 255, 255, 0.5);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.league-summary-value {
+    font-size: 48px;
+    font-weight: 800;
+    color: white;
+    font-variant-numeric: tabular-nums;
+}
+
+.league-summary-close {
+    padding: 14px 48px;
+    background: #00A36C;
+    color: white;
+    border: none;
+    border-radius: 12px;
+    font-size: 18px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.league-summary-close:hover {
+    background: #008855;
 } 

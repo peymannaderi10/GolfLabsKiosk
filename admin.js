@@ -198,6 +198,11 @@ function populateConfigForm(config) {
     document.getElementById('extensionOpt30').checked = (ext.options || []).includes(30);
     document.getElementById('extensionOpt45').checked = (ext.options || []).includes(45);
     document.getElementById('extensionOpt60').checked = (ext.options || []).includes(60);
+
+    // League mode settings
+    const league = config.leagueSettings || { enabled: false, leagueId: '' };
+    document.getElementById('leagueModeEnabled').checked = league.enabled === true;
+    document.getElementById('leagueId').value = league.leagueId || '';
 }
 
 function toggleConfigEdit() {
@@ -241,6 +246,10 @@ async function saveConfig() {
                 enabled: document.getElementById('extensionEnabled').checked,
                 triggerMinutes: parseInt(document.getElementById('extensionTriggerMinutes').value) || 5,
                 options: extOptions
+            },
+            leagueSettings: {
+                enabled: document.getElementById('leagueModeEnabled').checked,
+                leagueId: document.getElementById('leagueId').value.trim()
             }
         };
 
