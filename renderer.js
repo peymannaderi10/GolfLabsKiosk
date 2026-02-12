@@ -940,6 +940,37 @@ function handleLeagueStandingsUpdate(payload) {
     fetchMiniLeaderboard();
 }
 
+// Listen for remote league mode changes from the employee dashboard
+window.electronAPI.onLeagueModeChanged((payload) => {
+    console.log('Remote league mode change received:', payload);
+
+    if (payload.active) {
+        // League mode activated remotely
+        // Update local settings in memory
+        leagueSettings = {
+            enabled: true,
+            leagueId: payload.leagueId,
+        };
+
+        console.log('League mode ACTIVATED remotely. Re-initializing...');
+        // Re-initialize league mode (will set up event listeners if not already done)
+        initializeLeagueMode().then(() => {
+            // If there's an active booking, try to load the league for it
+            if (currentBooking) {
+                leagueActiveUserId = null; // Force reload
+                loadLeagueForCurrentBooking();
+            }
+        });
+    } else {
+        // League mode deactivated remotely
+        console.log('League mode DEACTIVATED remotely. Hiding UI...');
+        leagueSettings = { enabled: false, leagueId: null };
+        leagueState = null;
+        leagueActiveUserId = null;
+        hideLeagueUI();
+    }
+});
+
 // Initialize league mode after main initialization
 // Event listeners are set up once; actual player resolution happens when a booking becomes active.
 initializeLeagueMode(); 

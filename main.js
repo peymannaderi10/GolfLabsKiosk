@@ -337,6 +337,38 @@ function connectToWebSocket() {
     });
   });
 
+  // Listener for remote league mode toggle from the dashboard
+  socket.on('league_mode_changed', (payload) => {
+    console.log('Received league_mode_changed:', payload);
+    
+    // If the event specifies a specific bayId and it's not ours, ignore
+    if (payload.bayId && payload.bayId !== config.bayId) {
+      console.log(`League mode change is for bay ${payload.bayId}, not us (${config.bayId}). Ignoring.`);
+      return;
+    }
+
+    // Update in-memory league settings
+    if (!config.leagueSettings) {
+      config.leagueSettings = {};
+    }
+    config.leagueSettings.enabled = payload.active;
+    config.leagueSettings.leagueId = payload.leagueId || null;
+
+    console.log(`League mode ${payload.active ? 'ACTIVATED' : 'DEACTIVATED'} remotely. LeagueId: ${payload.leagueId}`);
+
+    // If activating and not yet in a league room, join it
+    if (payload.active && payload.leagueId) {
+      socket.emit('register_league', { locationId: config.locationId, leagueId: payload.leagueId });
+    }
+
+    // Notify all renderer windows
+    [mainWindow, ...additionalWindows].forEach(window => {
+      if (window && !window.isDestroyed()) {
+        window.webContents.send('league-mode-changed', payload);
+      }
+    });
+  });
+
   // Listener for door unlock commands
   socket.on('unlock', async (payload, ack) => {
     console.log('Received unlock command:', payload);

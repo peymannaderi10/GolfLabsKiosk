@@ -54,4 +54,5 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getLeagueLeaderboard: (leagueId) => ipcRenderer.invoke('get-league-leaderboard', leagueId),
   onLeagueScoreUpdate: (callback) => ipcRenderer.on('league-score-update', (_event, payload) => callback(payload)),
   onLeagueStandingsUpdate: (callback) => ipcRenderer.on('league-standings-update', (_event, payload) => callback(payload)),
+  onLeagueModeChanged: (callback) => ipcRenderer.on('league-mode-changed', (_event, payload) => callback(payload)),
 }); 
