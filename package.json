@@ -1,6 +1,6 @@
 {
   "name": "golflabskiosk",
-  "version": "1.0.5",
+  "version": "1.0.6",
   "description": "Golf Labs Kiosk Application",
   "main": "main.js",
   "overrides": {
@@ -41,6 +41,8 @@
       "admin.css",
       "styles.css",
       "config.example.json",
+      "watchdog.vbs",
+      "watchdog.bat",
       "assets/**/*"
     ],
     "win": {
