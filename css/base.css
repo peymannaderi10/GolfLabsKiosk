@@ -1,0 +1,196 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+:root {
+    /* GolfLabs Brand Colors */
+    --primary: 158 100% 33%; /* #00A36C */
+    --primary-foreground: 0 0% 100%; /* White */
+    --background-dark: 240 10% 3.9%; /* Dark Gray */
+    --foreground: 0 0% 98%; /* Almost White */
+    --muted: 240 3.7% 15.9%;
+    --muted-foreground: 240 5% 64.9%;
+    --border: 240 3.7% 15.9%;
+}
+
+html, body {
+    background: transparent;
+    margin: 0;
+    padding: 0;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    color: white;
+    overflow: hidden;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+}
+
+#lock-screen {
+    background: linear-gradient(135deg, hsl(var(--background-dark)) 0%, hsl(var(--muted)) 50%, hsl(240 3.7% 20%) 100%);
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    width: 100vw;
+    position: absolute;
+    top: 0;
+    left: 0;
+    z-index: 100;
+    position: relative;
+}
+
+/* Animated background pattern */
+#lock-screen::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-image: 
+        radial-gradient(circle at 25% 25%, hsl(var(--primary) / 0.1) 0%, transparent 25%),
+        radial-gradient(circle at 75% 75%, hsl(var(--primary) / 0.15) 0%, transparent 25%);
+    animation: float 20s ease-in-out infinite;
+}
+
+@keyframes float {
+    0%, 100% { transform: translateY(0px) rotate(0deg); }
+    33% { transform: translateY(-20px) rotate(1deg); }
+    66% { transform: translateY(10px) rotate(-1deg); }
+}
+
+.lock-content {
+    text-align: center;
+    z-index: 10;
+    position: relative;
+}
+
+.lock-icon {
+    width: 80px;
+    height: 80px;
+    margin: 0 auto 32px auto;
+    background: linear-gradient(135deg, hsl(var(--primary)), hsl(var(--primary) / 0.8));
+    border-radius: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 20px 40px hsl(var(--primary) / 0.3);
+    animation: pulse 3s ease-in-out infinite;
+}
+
+@keyframes pulse {
+    0%, 100% { 
+        transform: scale(1); 
+        box-shadow: 0 20px 40px hsl(var(--primary) / 0.3);
+    }
+    50% { 
+        transform: scale(1.05); 
+        box-shadow: 0 25px 50px hsl(var(--primary) / 0.4);
+    }
+}
+
+.lock-icon svg {
+    width: 40px;
+    height: 40px;
+    fill: white;
+}
+
+.main-title {
+    font-size: 48px;
+    font-weight: 700;
+    margin: 0 0 16px 0;
+    background: linear-gradient(135deg, hsl(var(--foreground)), hsl(var(--muted-foreground)));
+    background-clip: text;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    letter-spacing: -0.02em;
+}
+
+.subtitle {
+    font-size: 20px;
+    font-weight: 400;
+    color: hsl(var(--muted-foreground));
+    margin: 0 0 8px 0;
+    letter-spacing: 0.01em;
+}
+
+.status-text {
+    font-size: 16px;
+    color: hsl(var(--muted-foreground) / 0.8);
+    font-weight: 300;
+}
+
+#unlock-screen {
+    display: none;
+    height: 100vh;
+    width: 100vw;
+    border: 5px solid hsl(var(--primary));
+    box-sizing: border-box;
+    background: transparent;
+    pointer-events: none;
+}
+
+/* Top-right bar: holds the league button + countdown timer */
+#top-right-bar {
+    position: fixed;
+    top: 15px;
+    right: 15px;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 10px;
+    z-index: 1000;
+    pointer-events: auto;
+}
+
+#countdown {
+    background: hsl(var(--background-dark) / 0.85);
+    backdrop-filter: blur(8px);
+    padding: 8px 14px;
+    border-radius: 10px;
+    border: 1px solid hsl(var(--border));
+    font-family: 'Inter', sans-serif;
+    font-size: 14px;
+    font-weight: 500;
+    box-shadow: 0 6px 20px hsl(var(--background-dark) / 0.4);
+    color: hsl(var(--foreground));
+}
+
+#refresh-button {
+    position: fixed;
+    top: 20px;
+    left: 20px;
+    padding: 8px 12px;
+    background: hsl(var(--muted) / 0.8);
+    backdrop-filter: blur(10px);
+    border: 1px solid hsl(var(--border));
+    border-radius: 8px;
+    color: hsl(var(--muted-foreground));
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    z-index: 1000;
+    pointer-events: auto;
+}
+
+#refresh-button:hover {
+    background: hsl(var(--muted) / 0.9);
+    color: hsl(var(--foreground));
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px hsl(var(--background-dark) / 0.3);
+}
+
+#refresh-button:active {
+    transform: translateY(0);
+}
+
+/* Golf-themed decorative elements using brand color */
+.golf-accent {
+    position: absolute;
+    bottom: 60px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 200px;
+    height: 4px;
+    background: linear-gradient(90deg, transparent, hsl(var(--primary)), transparent);
+    border-radius: 2px;
+}
