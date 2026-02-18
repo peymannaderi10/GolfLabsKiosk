@@ -147,7 +147,7 @@ function connectToWebSocket(ctx) {
         method: "Switch.Set",
         params: {
           id: 0,
-          on: false,
+          on: true,
           toggle_after: duration
         }
       };
@@ -214,7 +214,7 @@ function connectToWebSocket(ctx) {
             method: "Switch.Set",
             params: {
               id: 0,
-              on: false,
+              on: true,
               toggle_after: duration
             }
           }
