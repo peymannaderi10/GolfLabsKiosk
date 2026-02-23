@@ -573,7 +573,12 @@ async function triggerManualUnlock() {
     await executeManualUnlock(durationMinutes);
 }
 
+let isUnlockInProgress = false;
+
 async function executeManualUnlock(durationMinutes) {
+    if (isUnlockInProgress) return;
+    isUnlockInProgress = true;
+
     const warningEl = document.getElementById('unlock-warning');
     const successEl = document.getElementById('unlock-success');
     
@@ -594,6 +599,8 @@ async function executeManualUnlock(durationMinutes) {
         console.error('Manual unlock failed:', error);
         warningEl.textContent = `❌ Error: ${error.message}`;
         warningEl.style.display = 'block';
+    } finally {
+        setTimeout(() => { isUnlockInProgress = false; }, 1000);
     }
 }
 

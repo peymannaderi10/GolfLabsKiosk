@@ -17,6 +17,7 @@ const ctx = {
   pollingInterval: null,
   isManuallyUnlocked: false,
   manualUnlockEndTime: null,
+  manualUnlockTimer: null,
   keysPressed: new Set(),
   adminKeyCombo: ['PageUp', 'PageDown'],
   isDev,

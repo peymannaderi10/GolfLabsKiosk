@@ -154,6 +154,11 @@ function registerIpcHandlers(ctx) {
       console.log(`Admin timed screen unlock requested for ${durationMinutes} minutes`);
 
       try {
+          if (ctx.manualUnlockTimer) {
+              clearTimeout(ctx.manualUnlockTimer);
+              ctx.manualUnlockTimer = null;
+          }
+
           ctx.isManuallyUnlocked = true;
           
           const durationMs = durationMinutes * 60 * 1000;
@@ -165,9 +170,10 @@ function registerIpcHandlers(ctx) {
               }
           });
 
-          setTimeout(() => {
+          ctx.manualUnlockTimer = setTimeout(() => {
               ctx.isManuallyUnlocked = false;
               ctx.manualUnlockEndTime = null;
+              ctx.manualUnlockTimer = null;
               console.log(`Timed screen unlock expired after ${durationMinutes} minutes`);
               
               [ctx.mainWindow, ...ctx.additionalWindows].forEach(window => {
