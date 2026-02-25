@@ -460,12 +460,23 @@ function showRoundSummary(grossScore) {
 
     document.getElementById('league-summary-gross').textContent = grossScore;
     document.getElementById('league-summary-net').textContent = netScore;
-    document.getElementById('league-summary-rank').textContent = '--'; // Will update from leaderboard
+    document.getElementById('league-summary-rank').textContent = '--';
 
     document.getElementById('league-round-summary').classList.remove('league-hidden');
 
     // Make window interactive for the summary
     window.electronAPI.setIgnoreMouseEvents(false);
+
+    // Fetch leaderboard to resolve actual rank
+    fetchMiniLeaderboard().then(() => {
+        const playerId = leagueState?.player?.id;
+        if (playerId && leagueMiniLeaderboard.length > 0) {
+            const entry = leagueMiniLeaderboard.find(e => e.playerId === playerId);
+            if (entry) {
+                document.getElementById('league-summary-rank').textContent = entry.rank;
+            }
+        }
+    });
 }
 
 function closeRoundSummary() {
