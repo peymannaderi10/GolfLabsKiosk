@@ -1,7 +1,7 @@
-const { app, globalShortcut, dialog } = require('electron');
+const { app, globalShortcut, dialog, screen } = require('electron');
 
 const { loadConfig, logBuffer } = require('./main/config');
-const { createWindows, openAdminMode } = require('./main/windows');
+const { createWindows, openAdminMode, recreateAdditionalWindows } = require('./main/windows');
 const { connectToWebSocket, setupPolling } = require('./main/websocket');
 const { registerIpcHandlers } = require('./main/ipc-handlers');
 
@@ -29,6 +29,18 @@ app.on('ready', () => {
   if (!ctx.config) return; // loadConfig calls app.quit() on failure
 
   createWindows(ctx);
+
+  let displayChangeTimeout = null;
+  const scheduleRecreateDisplays = () => {
+    if (displayChangeTimeout) clearTimeout(displayChangeTimeout);
+    displayChangeTimeout = setTimeout(() => {
+      displayChangeTimeout = null;
+      console.log('Display change detected - recreating projector windows');
+      recreateAdditionalWindows(ctx);
+    }, 400);
+  };
+  screen.on('display-added', scheduleRecreateDisplays);
+  screen.on('display-removed', scheduleRecreateDisplays);
   
   globalShortcut.register('PageUp+PageDown', () => {
     console.log('Global shortcut PageUp+PageDown pressed');

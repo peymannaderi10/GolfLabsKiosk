@@ -8,8 +8,10 @@ function createWindows(ctx) {
   const primaryDisplay = screen.getPrimaryDisplay();
   ctx.mainWindow = createWindow(ctx, primaryDisplay, true);
 
+  const seenIds = new Set();
   displays.forEach((display, index) => {
-    if (display.id !== primaryDisplay.id) {
+    if (display.id !== primaryDisplay.id && !seenIds.has(display.id)) {
+      seenIds.add(display.id);
       console.log(`Creating window for display ${index + 1}: ${display.bounds.width}x${display.bounds.height}`);
       const window = createWindow(ctx, display, false);
       ctx.additionalWindows.push(window);
@@ -107,26 +109,41 @@ function openAdminMode(ctx) {
 function closeAdditionalWindows(ctx) {
   ctx.additionalWindows.forEach(window => {
     if (!window.isDestroyed()) {
-      window.close();
+      window.destroy();
     }
   });
   ctx.additionalWindows = [];
   console.log('Closed all additional monitor windows');
 }
 
+function repositionMainWindow(ctx) {
+  if (!ctx.mainWindow || ctx.mainWindow.isDestroyed()) return;
+  const primaryDisplay = screen.getPrimaryDisplay();
+  const { x, y, width, height } = primaryDisplay.bounds;
+  ctx.mainWindow.setBounds({ x, y, width, height });
+  if (!ctx.isDev) {
+    ctx.mainWindow.setFullScreen(true);
+    ctx.mainWindow.setAlwaysOnTop(true, 'screen-saver');
+  }
+  console.log(`Repositioned main window to primary display: ${width}x${height}`);
+}
+
 function recreateAdditionalWindows(ctx) {
   closeAdditionalWindows(ctx);
-  
+  repositionMainWindow(ctx);
+
   const displays = screen.getAllDisplays();
   const primaryDisplay = screen.getPrimaryDisplay();
+  const seenIds = new Set();
 
   displays.forEach((display, index) => {
-    if (display.id !== primaryDisplay.id) {
-      console.log(`Recreating window for display ${index + 1}`);
+    if (display.id !== primaryDisplay.id && !seenIds.has(display.id)) {
+      seenIds.add(display.id);
+      console.log(`Recreating window for display ${index + 1}: ${display.bounds.width}x${display.bounds.height}`);
       const window = createWindow(ctx, display, false);
       ctx.additionalWindows.push(window);
     }
   });
 }
 
-module.exports = { createWindows, openAdminMode, closeAdditionalWindows, recreateAdditionalWindows };
+module.exports = { createWindows, openAdminMode, closeAdditionalWindows, recreateAdditionalWindows, repositionMainWindow };
