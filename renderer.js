@@ -281,6 +281,12 @@ async function fetchExtensionOptions() {
             return;
         }
 
+        if (!result.card) {
+            console.log('No card on file - not showing extension UI.');
+            extensionState = 'declined';
+            return;
+        }
+
         extensionOptions = result.options;
         extensionCardInfo = result.card;
         extensionState = 'showing';
@@ -304,18 +310,13 @@ function showExtensionBanner() {
     // Build option buttons
     optionsContainer.innerHTML = '';
 
-    if (!extensionCardInfo) {
-        // No card on file - show message
-        optionsContainer.innerHTML = '<div class="extension-no-card">Visit the front desk to extend your session</div>';
-    } else {
-        extensionOptions.forEach(opt => {
-            const btn = document.createElement('button');
-            btn.className = 'extension-option-btn';
-            btn.innerHTML = `<span class="option-duration">${opt.minutes} min</span><span class="option-price">${opt.priceFormatted}</span>`;
-            btn.addEventListener('click', () => selectExtensionOption(opt));
-            optionsContainer.appendChild(btn);
-        });
-    }
+    extensionOptions.forEach(opt => {
+        const btn = document.createElement('button');
+        btn.className = 'extension-option-btn';
+        btn.innerHTML = `<span class="option-duration">${opt.minutes} min</span><span class="option-price">${opt.priceFormatted}</span>`;
+        btn.addEventListener('click', () => selectExtensionOption(opt));
+        optionsContainer.appendChild(btn);
+    });
 
     banner.classList.remove('extension-hidden');
 
