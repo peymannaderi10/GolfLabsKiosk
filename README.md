@@ -363,77 +363,66 @@ C:\Users\<YourUsername>\AppData\Roaming\Golf Labs Kiosk\config.json
 
 ---
 
-## 3  Create the Watchdog Scripts
+## 3  Watchdog Scripts
 
-These scripts monitor and restart the kiosk app and simulator if they crash.
+The watchdog monitors both the kiosk and simulator, restarting them if they crash. It also detects and kills duplicate instances. The installer ships three files:
+
+| File | Purpose |
+|------|---------|
+| `watchdog.vbs` | Hidden launcher — runs the PowerShell watchdog (falls back to .bat) |
+| `watchdog.ps1` | Primary watchdog — named mutex, duplicate-instance killing, log rotation |
+| `watchdog.bat` | Legacy fallback — used only if PowerShell is unavailable |
+
+### How it works
+
+- **Single-instance guarantee**: A named mutex (`Global\GolfLabsKioskWatchdog`) prevents two watchdog processes from running simultaneously.
+- **Duplicate detection**: Each check counts running kiosk instances. If more than one is found, extras are killed (oldest kept).
+- **Startup**: Waits 45 seconds after launch for Windows to settle, then checks every 30 seconds.
+- **Logging**: Writes to `logs\watchdog.log` next to the exe. Log rotates at 5MB.
 
 ### watchdog.vbs
-Save as `C:\GolfLabsKiosk\Golf Labs Kiosk\watchdog.vbs`:
-
 ```vb
+Set fso = CreateObject("Scripting.FileSystemObject")
+ScriptDir = fso.GetParentFolderName(WScript.ScriptFullName)
 Set WshShell = CreateObject("WScript.Shell")
-WshShell.Run Chr(34) & "C:\GolfLabsKiosk\Golf Labs Kiosk\watchdog.bat" & Chr(34), 0, False
+WshShell.CurrentDirectory = ScriptDir
+
+Ps1Path = ScriptDir & "\watchdog.ps1"
+BatPath = ScriptDir & "\watchdog.bat"
+
+If fso.FileExists(Ps1Path) Then
+    PsCmd = "powershell.exe -ExecutionPolicy Bypass -WindowStyle Hidden -NoProfile -File " & Chr(34) & Ps1Path & Chr(34)
+    WshShell.Run PsCmd, 0, False
+ElseIf fso.FileExists(BatPath) Then
+    WshShell.Run Chr(34) & BatPath & Chr(34), 0, False
+End If
 ```
 
-### watchdog.bat
-Save as `C:\GolfLabsKiosk\Golf Labs Kiosk\watchdog.bat`:
-
-```bat
-@echo off
-rem Wait for initial apps to start
-timeout /t 10 /nobreak >nul
-
-:watch_loop
-   rem — Check kiosk overlay; restart if needed
-   tasklist /fi "imagename eq Golf Labs Kiosk.exe" | find /i "Golf Labs Kiosk.exe" >nul
-   if errorlevel 1 (
-       echo [%time%] Overlay exited — relaunching...
-       start "" "C:\GolfLabsKiosk\Golf Labs Kiosk\Golf Labs Kiosk.exe"
-   )
-
-   rem — Check simulator; launch or restart if needed
-   tasklist /fi "imagename eq UneekorLauncher.exe" | find /i "UneekorLauncher.exe" >nul
-   if errorlevel 1 (
-       echo [%time%] Simulator not running — launching...
-       start "" "C:\Uneekor\Launcher\UneekorLauncher.exe"
-   )
-
-   rem — Pause briefly before repeating
-   timeout /t 5 /nobreak >nul
-goto watch_loop
-```
-
-> **Note:** Modify the simulator path and executable name to match your setup (GSPro, Uneekor, etc.)
+> **Note:** Modify the simulator path in `watchdog.ps1` to match your setup (GSPro, Uneekor, etc.)
 
 ---
 
 ## 4  Create Startup Shortcuts
 
-Run this in **regular PowerShell** (not admin) to create startup shortcuts for instant launch:
+Run this in **regular PowerShell** (not admin) to create startup shortcuts.
+
+> **Important:** The watchdog handles launching both the kiosk and simulator. Do **not** create a separate `GolfLabsKiosk.lnk` — having both caused duplicate instances in the past.
 
 ```powershell
 $WshShell = New-Object -ComObject WScript.Shell
 
-# 1. Kiosk App - launches instantly on boot
-$Kiosk = $WshShell.CreateShortcut("$env:APPDATA\Microsoft\Windows\Start Menu\Programs\Startup\GolfLabsKiosk.lnk")
-$Kiosk.TargetPath = "C:\GolfLabsKiosk\Golf Labs Kiosk\Golf Labs Kiosk.exe"
-$Kiosk.WorkingDirectory = "C:\GolfLabsKiosk\Golf Labs Kiosk"
-$Kiosk.Save()
+# Remove legacy direct kiosk shortcut if present
+$legacyKiosk = "$env:APPDATA\Microsoft\Windows\Start Menu\Programs\Startup\GolfLabsKiosk.lnk"
+if (Test-Path $legacyKiosk) { Remove-Item $legacyKiosk -Force; Write-Host "Removed legacy GolfLabsKiosk.lnk" -ForegroundColor Yellow }
 
-# 2. Simulator - launches instantly on boot
-$Simulator = $WshShell.CreateShortcut("$env:APPDATA\Microsoft\Windows\Start Menu\Programs\Startup\Simulator.lnk")
-$Simulator.TargetPath = "C:\Uneekor\Launcher\UneekorLauncher.exe"
-$Simulator.WorkingDirectory = "C:\Uneekor\Launcher"
-$Simulator.Save()
-
-# 3. Watchdog - monitors and restarts crashed apps
+# Watchdog - the single entry point that launches and monitors kiosk + simulator
 $Watchdog = $WshShell.CreateShortcut("$env:APPDATA\Microsoft\Windows\Start Menu\Programs\Startup\KioskWatchdog.lnk")
 $Watchdog.TargetPath = "wscript.exe"
 $Watchdog.Arguments = '"C:\GolfLabsKiosk\Golf Labs Kiosk\watchdog.vbs"'
 $Watchdog.WorkingDirectory = "C:\GolfLabsKiosk\Golf Labs Kiosk"
 $Watchdog.Save()
 
-Write-Host "Startup shortcuts created!" -ForegroundColor Green
+Write-Host "Startup shortcut created!" -ForegroundColor Green
 ```
 
 ### Verify shortcuts:
@@ -532,17 +521,18 @@ Settings → System → Power & battery → Screen and sleep
 ```
 C:\GolfLabsKiosk\Golf Labs Kiosk\
 ├── Golf Labs Kiosk.exe    ← Main application
-├── watchdog.vbs           ← Hidden script launcher
-├── watchdog.bat           ← Watchdog loop
+├── watchdog.vbs           ← Hidden launcher (entry point)
+├── watchdog.ps1           ← Primary watchdog (PowerShell)
+├── watchdog.bat           ← Legacy fallback watchdog
+├── logs\
+│   └── watchdog.log       ← Watchdog activity log
 └── (other installer files)
 
 C:\Users\<You>\AppData\Roaming\Golf Labs Kiosk\
 └── config.json            ← Configuration file
 
 C:\Users\<You>\AppData\Roaming\Microsoft\Windows\Start Menu\Programs\Startup\
-├── GolfLabsKiosk.lnk      ← Instant app launch
-├── Simulator.lnk          ← Instant simulator launch
-└── KioskWatchdog.lnk      ← Background watchdog
+└── KioskWatchdog.lnk      ← Watchdog (launches kiosk + simulator)
 ```
 
 ---

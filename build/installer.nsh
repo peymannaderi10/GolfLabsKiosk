@@ -1,8 +1,8 @@
 !macro customInstall
-  ; Create Kiosk startup shortcut
-  CreateShortCut "$SMSTARTUP\GolfLabsKiosk.lnk" "$INSTDIR\Golf Labs Kiosk.exe" "" "$INSTDIR"
+  ; Remove legacy direct-launch shortcut if present (watchdog now owns kiosk lifecycle)
+  Delete "$SMSTARTUP\GolfLabsKiosk.lnk"
   
-  ; Create Watchdog startup shortcut (quoted path for spaces in InstallDir)
+  ; Create Watchdog startup shortcut — the watchdog launches and monitors the kiosk
   CreateShortCut "$SMSTARTUP\KioskWatchdog.lnk" "wscript.exe" '$\"$INSTDIR\watchdog.vbs$\"' "$INSTDIR"
 !macroend
 
