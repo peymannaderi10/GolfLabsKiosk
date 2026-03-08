@@ -170,15 +170,16 @@ function connectToWebSocket(ctx) {
       const result = response.data;
       console.log('Shelly switch response:', result);
 
+      const isValidUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(bookingId);
       const logData = {
         location_id: locationId,
         bay_id: ctx.config.bayId,
-        booking_id: bookingId,
-        action: 'door_unlock_success',
+        booking_id: isValidUUID ? bookingId : null,
+        action: isValidUUID ? 'door_unlock_success' : 'employee_door_unlock',
         success: true,
         ip_address: shellyIP,
         user_agent: 'Kiosk',
-        unlock_method: 'email_link',
+        unlock_method: isValidUUID ? 'email_link' : 'employee_dashboard',
         response_time_ms: responseTime,
         metadata: {
           shelly_response: result,
@@ -200,16 +201,17 @@ function connectToWebSocket(ctx) {
       
       const responseTime = Date.now() - unlockStartTime;
       
+      const isFailUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(bookingId);
       const logData = {
         location_id: locationId,
         bay_id: ctx.config.bayId,
-        booking_id: bookingId,
+        booking_id: isFailUUID ? bookingId : null,
         action: 'door_unlock_failure',
         success: false,
         error_message: error.message,
         ip_address: ctx.config.shellyIP,
         user_agent: 'Kiosk',
-        unlock_method: 'email_link',
+        unlock_method: isFailUUID ? 'email_link' : 'employee_dashboard',
         response_time_ms: responseTime,
         metadata: {
           error_details: error.toString(),
