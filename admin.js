@@ -187,6 +187,7 @@ function populateConfigForm(config) {
     document.getElementById('bayId').value = config.bayId || '';
     document.getElementById('locationId').value = config.locationId || '';
     document.getElementById('apiBaseUrl').value = config.apiBaseUrl || '';
+    document.getElementById('kioskApiKey').value = config.kioskApiKey || '';
     document.getElementById('shellyIP').value = config.shellyIP || '';
     document.getElementById('timezone').value = config.timezone || '';
 
@@ -240,6 +241,7 @@ async function saveConfig() {
             bayId: document.getElementById('bayId').value.trim(),
             locationId: document.getElementById('locationId').value.trim(),
             apiBaseUrl: document.getElementById('apiBaseUrl').value.trim(),
+            kioskApiKey: document.getElementById('kioskApiKey').value.trim(),
             shellyIP: document.getElementById('shellyIP').value.trim(),
             timezone: document.getElementById('timezone').value.trim(),
             extensionSettings: {

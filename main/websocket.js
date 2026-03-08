@@ -4,7 +4,8 @@ const axios = require('axios');
 function connectToWebSocket(ctx) {
   if (!ctx.config) return;
 
-  const { locationId, bayId, apiBaseUrl } = ctx.config;
+  const { locationId, bayId, apiBaseUrl, kioskApiKey } = ctx.config;
+  const apiHeaders = { 'X-Kiosk-Key': kioskApiKey || '' };
   console.log(`Connecting to WebSocket server at ${apiBaseUrl}`);
 
   ctx.socket = io(apiBaseUrl, {
@@ -13,6 +14,7 @@ function connectToWebSocket(ctx) {
     reconnectionDelay: 1000,
     reconnectionDelayMax: 5000,
     transports: ['websocket'],
+    auth: { kioskKey: kioskApiKey || '' },
   });
 
   ctx.socket.on('connect', () => {
@@ -34,6 +36,10 @@ function connectToWebSocket(ctx) {
 
   ctx.socket.on('connect_error', (error) => {
     console.error(`WebSocket connection error: ${error.message}`);
+  });
+
+  ctx.socket.on('auth_error', (payload) => {
+    console.error(`Kiosk authentication error: ${payload.message}. Check kioskApiKey in config.`);
   });
 
   ctx.socket.on('bookings_updated', (payload) => {
@@ -182,7 +188,7 @@ function connectToWebSocket(ctx) {
         }
       };
 
-      axios.post(`${ctx.config.apiBaseUrl}/logs/access`, logData)
+      axios.post(`${ctx.config.apiBaseUrl}/logs/access`, logData, { headers: apiHeaders })
         .then(() => console.log('Successfully logged unlock success'))
         .catch(logError => console.error('Failed to log unlock success:', logError.message));
 
@@ -221,7 +227,7 @@ function connectToWebSocket(ctx) {
         }
       };
 
-      axios.post(`${ctx.config.apiBaseUrl}/logs/access`, logData)
+      axios.post(`${ctx.config.apiBaseUrl}/logs/access`, logData, { headers: apiHeaders })
         .then(() => console.log('Successfully logged unlock failure'))
         .catch(logError => console.error('Failed to log unlock failure:', logError.message));
         

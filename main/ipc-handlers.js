@@ -5,8 +5,15 @@ const axios = require('axios');
 
 const { closeAdditionalWindows, recreateAdditionalWindows } = require('./windows');
 
+function createApiClient(ctx) {
+  return axios.create({
+    headers: { 'X-Kiosk-Key': ctx.config.kioskApiKey || '' },
+  });
+}
+
 function registerIpcHandlers(ctx) {
   const { CONFIG_PATH } = require('./config');
+  const api = createApiClient(ctx);
 
   // IPC handler for renderer to request config
   ipcMain.handle('get-config', () => {
@@ -358,8 +365,8 @@ function registerIpcHandlers(ctx) {
       console.log(`Sending heartbeat to: ${url}`);
       
       try {
-          const response = await axios.post(url, {});
-          console.log('Heartbeat response:', response.data);
+      const response = await api.post(url, {});
+      console.log('Heartbeat response:', response.data);
           return response.data;
       } catch (error) {
           console.error('Error sending heartbeat:', error.message);
@@ -380,8 +387,8 @@ function registerIpcHandlers(ctx) {
       console.log(`Logging access event to: ${url}`);
       
       try {
-          const response = await axios.post(url, logData);
-          console.log('Access log response:', response.data);
+      const response = await api.post(url, logData);
+      console.log('Access log response:', response.data);
           return response.data;
       } catch (error) {
           console.error('Error sending access log:', error.message);
@@ -403,7 +410,7 @@ function registerIpcHandlers(ctx) {
       console.log(`Fetching extension options from: ${url}`);
 
       try {
-          const response = await axios.get(url);
+          const response = await api.get(url);
           console.log('Extension options response:', response.data);
           return response.data;
       } catch (error) {
@@ -424,7 +431,7 @@ function registerIpcHandlers(ctx) {
       console.log(`Extending booking at: ${url} for ${extensionMinutes} minutes`);
 
       try {
-          const response = await axios.post(url, {
+          const response = await api.post(url, {
               extensionMinutes,
               locationId: ctx.config.locationId,
               bayId: ctx.config.bayId
@@ -468,7 +475,7 @@ function registerIpcHandlers(ctx) {
       try {
           const url = `${ctx.config.apiBaseUrl}/leagues/${leagueId}/kiosk-state?userId=${userId}`;
           console.log(`Fetching league state for userId ${userId} from: ${url}`);
-          const response = await axios.get(url);
+          const response = await api.get(url);
           return response.data;
       } catch (error) {
           console.error('Error fetching league state:', error.message);
@@ -487,7 +494,7 @@ function registerIpcHandlers(ctx) {
       console.log(`Submitting league score to: ${url}`, scoreData);
 
       try {
-          const response = await axios.post(url, scoreData);
+          const response = await api.post(url, scoreData);
           console.log('League score response:', response.data);
           return response.data;
       } catch (error) {
@@ -508,7 +515,7 @@ function registerIpcHandlers(ctx) {
       console.log(`Fetching league leaderboard from: ${url}`);
 
       try {
-          const response = await axios.get(url);
+          const response = await api.get(url);
           return response.data;
       } catch (error) {
           console.error('Error fetching league leaderboard:', error.message);
