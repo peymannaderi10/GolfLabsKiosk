@@ -171,27 +171,30 @@ function connectToWebSocket(ctx) {
       console.log('Shelly switch response:', result);
 
       const isValidUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(bookingId);
-      const logData = {
-        location_id: locationId,
-        bay_id: ctx.config.bayId,
-        booking_id: isValidUUID ? bookingId : null,
-        action: isValidUUID ? 'door_unlock_success' : 'employee_door_unlock',
-        success: true,
-        ip_address: shellyIP,
-        user_agent: 'Kiosk',
-        unlock_method: isValidUUID ? 'email_link' : 'employee_dashboard',
-        response_time_ms: responseTime,
-        metadata: {
-          shelly_response: result,
-          unlock_duration: duration,
-          shelly_url: shellyUrl,
-          shelly_request: requestBody
-        }
-      };
+      // Skip kiosk access log for employee unlocks - the API already creates one with employee identity
+      if (isValidUUID) {
+        const logData = {
+          location_id: locationId,
+          bay_id: ctx.config.bayId,
+          booking_id: bookingId,
+          action: 'door_unlock_success',
+          success: true,
+          ip_address: shellyIP,
+          user_agent: 'Kiosk',
+          unlock_method: 'email_link',
+          response_time_ms: responseTime,
+          metadata: {
+            shelly_response: result,
+            unlock_duration: duration,
+            shelly_url: shellyUrl,
+            shelly_request: requestBody
+          }
+        };
 
-      axios.post(`${ctx.config.apiBaseUrl}/logs/access`, logData, { headers: apiHeaders })
-        .then(() => console.log('Successfully logged unlock success'))
-        .catch(logError => console.error('Failed to log unlock success:', logError.message));
+        axios.post(`${ctx.config.apiBaseUrl}/logs/access`, logData, { headers: apiHeaders })
+          .then(() => console.log('Successfully logged unlock success'))
+          .catch(logError => console.error('Failed to log unlock success:', logError.message));
+      }
 
       console.log(`Door successfully unlocked for ${duration} seconds`);
       respond({ success: true, message: 'Door unlocked successfully' });
