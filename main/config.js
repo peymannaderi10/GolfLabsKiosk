@@ -68,6 +68,16 @@ function loadConfig() {
         console.log('League settings not found in config, using defaults');
     }
 
+    if (!config.projectorSettings) {
+        config.projectorSettings = { enabled: false, comPort: '', baudRate: 115200, powerOnCmd: '\\r*pow=on#\\r', powerOffCmd: '\\r*pow=off#\\r', preStartMinutes: 5, keepAliveGapMinutes: 60 };
+        console.log('Projector settings not found in config, using defaults');
+    }
+
+    if (!config.appManagerSettings) {
+        config.appManagerSettings = { enabled: true };
+        console.log('App manager settings not found in config, using defaults');
+    }
+
     return config;
 
   } catch (error) {

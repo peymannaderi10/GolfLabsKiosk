@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Lexend:wght@400;500;600;700;800&display=swap');
 
 :root {
     /* GolfLabs Brand Colors */
@@ -9,6 +9,11 @@
     --muted: 240 3.7% 15.9%;
     --muted-foreground: 240 5% 64.9%;
     --border: 240 3.7% 15.9%;
+
+    /* Brand tokens for tenant theming */
+    --brand-primary: #00A36C;
+    --brand-primary-dim: rgba(0, 163, 108, 0.12);
+    --brand-primary-glow: rgba(0, 163, 108, 0.06);
 }
 
 html, body {
@@ -22,6 +27,10 @@ html, body {
     -moz-osx-font-smoothing: grayscale;
 }
 
+/* ===========================================================
+   LOCK SCREEN
+   =========================================================== */
+
 #lock-screen {
     background: linear-gradient(135deg, hsl(var(--background-dark)) 0%, hsl(var(--muted)) 50%, hsl(240 3.7% 20%) 100%);
     display: flex;
@@ -30,11 +39,8 @@ html, body {
     align-items: center;
     height: 100vh;
     width: 100vw;
-    position: absolute;
-    top: 0;
-    left: 0;
-    z-index: 100;
     position: relative;
+    z-index: 100;
 }
 
 /* Animated background pattern */
@@ -45,10 +51,11 @@ html, body {
     left: 0;
     right: 0;
     bottom: 0;
-    background-image: 
+    background-image:
         radial-gradient(circle at 25% 25%, hsl(var(--primary) / 0.1) 0%, transparent 25%),
         radial-gradient(circle at 75% 75%, hsl(var(--primary) / 0.15) 0%, transparent 25%);
     animation: float 20s ease-in-out infinite;
+    pointer-events: none;
 }
 
 @keyframes float {
@@ -57,59 +64,142 @@ html, body {
     66% { transform: translateY(10px) rotate(-1deg); }
 }
 
-.lock-content {
-    text-align: center;
-    z-index: 10;
-    position: relative;
+/* --- Ambient corner glows --- */
+
+.lock-glow {
+    position: absolute;
+    width: 420px;
+    height: 420px;
+    border-radius: 50%;
+    pointer-events: none;
+    z-index: 1;
 }
 
-.lock-icon {
-    width: 80px;
-    height: 80px;
-    margin: 0 auto 32px auto;
-    background: linear-gradient(135deg, hsl(var(--primary)), hsl(var(--primary) / 0.8));
-    border-radius: 20px;
+.lock-glow--top-left {
+    top: -120px;
+    left: -120px;
+    background: radial-gradient(circle, var(--brand-primary-glow) 0%, transparent 70%);
+}
+
+.lock-glow--bottom-right {
+    bottom: -120px;
+    right: -120px;
+    background: radial-gradient(circle, var(--brand-primary-glow) 0%, transparent 70%);
+}
+
+/* --- Top bar --- */
+
+.lock-topbar {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
     display: flex;
     align-items: center;
-    justify-content: center;
-    box-shadow: 0 20px 40px hsl(var(--primary) / 0.3);
-    animation: pulse 3s ease-in-out infinite;
+    justify-content: space-between;
+    padding: 20px 32px;
+    z-index: 20;
 }
 
-@keyframes pulse {
-    0%, 100% { 
-        transform: scale(1); 
-        box-shadow: 0 20px 40px hsl(var(--primary) / 0.3);
-    }
-    50% { 
-        transform: scale(1.05); 
-        box-shadow: 0 25px 50px hsl(var(--primary) / 0.4);
-    }
-}
-
-.lock-icon svg {
-    width: 40px;
-    height: 40px;
-    fill: white;
-}
-
-.main-title {
-    font-size: 48px;
+.lock-topbar__brand {
+    font-family: 'Lexend', sans-serif;
     font-weight: 700;
-    margin: 0 0 16px 0;
-    background: linear-gradient(135deg, hsl(var(--foreground)), hsl(var(--muted-foreground)));
-    background-clip: text;
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
+    font-size: 22px;
+    color: var(--brand-primary);
     letter-spacing: -0.02em;
 }
 
-.subtitle {
-    font-size: 20px;
-    font-weight: 400;
+.lock-topbar__status {
+    display: flex;
+    align-items: center;
+    gap: 14px;
     color: hsl(var(--muted-foreground));
+}
+
+.lock-topbar__icon {
+    display: inline-flex;
+    opacity: 0.6;
+}
+
+/* --- Main content area --- */
+
+.lock-content {
+    z-index: 10;
+    position: relative;
+    width: 100%;
+    max-width: 1200px;
+    padding: 0 48px;
+    box-sizing: border-box;
+}
+
+.lock-grid {
+    display: grid;
+    grid-template-columns: 1fr 340px;
+    gap: 48px;
+    align-items: center;
+}
+
+.lock-grid__main {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+}
+
+/* Status label with pulse dot */
+
+.lock-status-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-family: 'Inter', sans-serif;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    color: var(--brand-primary);
+    background: var(--brand-primary-dim);
+    padding: 6px 14px;
+    border-radius: 6px;
+    margin-bottom: 20px;
+}
+
+.lock-pulse-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--brand-primary);
+    display: inline-block;
+    animation: pulse-dot 2s ease-in-out infinite;
+}
+
+.lock-pulse-dot--sm {
+    width: 6px;
+    height: 6px;
+}
+
+@keyframes pulse-dot {
+    0%, 100% { opacity: 1; box-shadow: 0 0 0 0 var(--brand-primary); }
+    50% { opacity: 0.6; box-shadow: 0 0 0 6px transparent; }
+}
+
+/* Title */
+
+.main-title {
+    font-family: 'Lexend', sans-serif;
+    font-size: 72px;
+    font-weight: 800;
     margin: 0 0 8px 0;
-    letter-spacing: 0.01em;
+    color: hsl(var(--foreground));
+    letter-spacing: -0.03em;
+    line-height: 1.05;
+}
+
+.subtitle {
+    font-family: 'Lexend', sans-serif;
+    font-size: 28px;
+    font-weight: 600;
+    color: var(--brand-primary);
+    margin: 0 0 28px 0;
+    letter-spacing: 0.02em;
 }
 
 .status-text {
@@ -117,6 +207,122 @@ html, body {
     color: hsl(var(--muted-foreground) / 0.8);
     font-weight: 300;
 }
+
+/* Uptime indicator */
+
+.lock-uptime {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-family: 'Inter', sans-serif;
+    font-size: 12px;
+    font-weight: 500;
+    letter-spacing: 0.1em;
+    color: hsl(var(--muted-foreground));
+    border: 1px solid hsl(var(--border));
+    padding: 5px 12px;
+    border-radius: 6px;
+    background: hsl(var(--muted) / 0.4);
+}
+
+/* --- Glass card (right side) --- */
+
+.lock-grid__side {
+    display: flex;
+    justify-content: center;
+}
+
+.lock-glass-card {
+    background: hsl(var(--muted) / 0.35);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid hsl(var(--border) / 0.6);
+    border-radius: 12px;
+    padding: 28px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    box-shadow: 0 8px 32px hsl(var(--background-dark) / 0.4);
+}
+
+.lock-glass-card__title {
+    font-family: 'Lexend', sans-serif;
+    font-size: 16px;
+    font-weight: 600;
+    color: hsl(var(--foreground));
+    margin-bottom: 20px;
+    letter-spacing: 0.01em;
+}
+
+.lock-glass-card__qr {
+    width: 200px;
+    height: 200px;
+    border-radius: 12px;
+    background: hsl(var(--foreground));
+    object-fit: contain;
+    display: block;
+}
+
+.lock-glass-card__caption {
+    font-size: 13px;
+    font-weight: 400;
+    color: hsl(var(--muted-foreground));
+    margin: 16px 0 0 0;
+    line-height: 1.4;
+    max-width: 200px;
+}
+
+/* --- Bottom bar --- */
+
+.lock-bottombar {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 32px;
+    z-index: 20;
+    border-top: 1px solid hsl(var(--border) / 0.3);
+}
+
+.lock-bottombar__label {
+    font-family: 'Inter', sans-serif;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    color: hsl(var(--muted-foreground) / 0.6);
+    text-transform: uppercase;
+}
+
+.lock-bottombar__time {
+    font-family: 'Inter', sans-serif;
+    font-size: 13px;
+    font-weight: 500;
+    color: hsl(var(--muted-foreground) / 0.8);
+    letter-spacing: 0.04em;
+}
+
+/* --- Golf accent (preserved) --- */
+
+.golf-accent {
+    position: absolute;
+    bottom: 48px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 200px;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, var(--brand-primary), transparent);
+    border-radius: 2px;
+    opacity: 0.5;
+    z-index: 15;
+}
+
+/* ===========================================================
+   UNLOCK SCREEN
+   =========================================================== */
 
 #unlock-screen {
     display: none;
@@ -156,8 +362,8 @@ html, body {
 
 #refresh-button {
     position: fixed;
-    top: 20px;
-    left: 20px;
+    bottom: 20px;
+    right: 20px;
     padding: 8px 12px;
     background: hsl(var(--muted) / 0.8);
     backdrop-filter: blur(10px);
@@ -183,14 +389,3 @@ html, body {
     transform: translateY(0);
 }
 
-/* Golf-themed decorative elements using brand color */
-.golf-accent {
-    position: absolute;
-    bottom: 60px;
-    left: 50%;
-    transform: translateX(-50%);
-    width: 200px;
-    height: 4px;
-    background: linear-gradient(90deg, transparent, hsl(var(--primary)), transparent);
-    border-radius: 2px;
-}

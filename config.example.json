@@ -10,6 +10,18 @@
         "enabled": true,
         "triggerMinutes": 5,
         "options": [15, 30, 45, 60]
+    },
+    "projectorSettings": {
+        "enabled": false,
+        "comPort": "COM3",
+        "baudRate": 115200,
+        "powerOnCmd": "\\r*pow=on#\\r",
+        "powerOffCmd": "\\r*pow=off#\\r",
+        "preStartMinutes": 5,
+        "keepAliveGapMinutes": 60
+    },
+    "appManagerSettings": {
+        "enabled": true
     }
 }
  

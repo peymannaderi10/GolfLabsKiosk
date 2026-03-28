@@ -1,5 +1,7 @@
 const { io } = require('socket.io-client');
 const axios = require('axios');
+const { scheduleFromBookings } = require('./projector');
+const { onSessionEnd } = require('./app-manager');
 
 function connectToWebSocket(ctx) {
   if (!ctx.config) return;
@@ -51,6 +53,8 @@ function connectToWebSocket(ctx) {
           window.webContents.send('bookings-updated', ctx.bookings);
         }
       });
+      // Re-evaluate projector schedule with new bookings
+      scheduleFromBookings(ctx);
     }
   });
   
@@ -76,6 +80,8 @@ function connectToWebSocket(ctx) {
           window.webContents.send('bookings-updated', ctx.bookings);
         }
       });
+      // Re-evaluate projector schedule with updated bookings
+      scheduleFromBookings(ctx);
     }
   });
 
@@ -158,7 +164,7 @@ function connectToWebSocket(ctx) {
         }
       };
       
-      const response = await axios.post(shellyUrl, requestBody);
+      const response = await axios.post(shellyUrl, requestBody, { timeout: 20000 });
 
       const responseTime = Date.now() - unlockStartTime;
       

@@ -47,6 +47,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
   broadcastExtensionState: (stateData) => ipcRenderer.send('extension-state-broadcast', stateData),
   onExtensionStateUpdate: (callback) => ipcRenderer.on('extension-state-update', (_event, stateData) => callback(stateData)),
 
+  // Session lifecycle
+  notifySessionEnd: () => ipcRenderer.invoke('session-ended'),
+
   // League mode APIs
   getLeagueSettings: () => ipcRenderer.invoke('get-league-settings'),
   getLeagueState: (userId) => ipcRenderer.invoke('get-league-state', userId),

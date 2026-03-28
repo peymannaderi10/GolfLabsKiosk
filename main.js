@@ -4,6 +4,8 @@ const { loadConfig, logBuffer } = require('./main/config');
 const { createWindows, openAdminMode, recreateAdditionalWindows } = require('./main/windows');
 const { connectToWebSocket, setupPolling } = require('./main/websocket');
 const { registerIpcHandlers } = require('./main/ipc-handlers');
+const { initProjector, destroyProjector } = require('./main/projector');
+const { initAppManager } = require('./main/app-manager');
 
 const isDev = process.argv.includes('--dev');
 
@@ -50,6 +52,8 @@ app.on('ready', () => {
   registerIpcHandlers(ctx);
   connectToWebSocket(ctx);
   setupPolling(ctx);
+  initProjector(ctx);
+  initAppManager(ctx);
 });
 
 app.on('window-all-closed', function () {
@@ -64,6 +68,7 @@ app.on('activate', function () {
 
 app.on('will-quit', () => {
   globalShortcut.unregisterAll();
+  destroyProjector();
 });
 
 // Global error handling for packaged app

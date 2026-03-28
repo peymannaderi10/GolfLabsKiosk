@@ -4,26 +4,38 @@ let isEditMode = false;
 
 let cachedBookings = [];
 
-// Navigation function
+// Navigation function — sidebar-based
 function navigateTo(pageId) {
+    // Redirect menu to default section
+    if (pageId === 'menu') pageId = 'bay-control';
+
+    // Hide all pages
     const pages = document.querySelectorAll('.page');
     pages.forEach(page => page.classList.remove('active'));
-    
-    const targetPage = pageId === 'menu' ? 'menu-page' : `${pageId}-page`;
-    const page = document.getElementById(targetPage);
+
+    // Show target page
+    const page = document.getElementById(`${pageId}-page`);
     if (page) {
         page.classList.add('active');
-        
-        // Load data for specific pages
-        if (pageId === 'monitor-mgmt') {
-            loadDisplayInfo();
-        } else if (pageId === 'console-logs') {
-            refreshLogs();
-        } else if (pageId === 'booking-info') {
-            loadBookingInfo();
-        } else if (pageId === 'system-info') {
-            loadSystemInfo();
-        }
+    }
+
+    // Update sidebar active state
+    const navItems = document.querySelectorAll('.nav-item[data-page]');
+    navItems.forEach(item => {
+        item.classList.toggle('active', item.dataset.page === pageId);
+    });
+
+    // Load data for specific pages
+    if (pageId === 'bay-control') {
+        loadBookingInfo();
+    } else if (pageId === 'hardware') {
+        loadDisplayInfo();
+        if (currentConfig) populateProjectorSettings(currentConfig);
+    } else if (pageId === 'settings') {
+        loadConfig();
+    } else if (pageId === 'system') {
+        loadSystemInfo();
+        refreshLogs();
     }
 }
 
@@ -47,9 +59,9 @@ function updateDisplayInfo() {
     const { displays, additionalWindowsCount } = displayInfo;
     
     let infoHtml = `
-        <div style="margin-bottom: 10px;">
-            <strong>Total Displays:</strong> ${displays.length} | 
-            <strong>Active Windows:</strong> ${additionalWindowsCount + 1} (1 primary + ${additionalWindowsCount} additional)
+        <div style="margin-bottom: 8px;">
+            <strong>${displays.length} display${displays.length !== 1 ? 's' : ''}</strong> detected &middot;
+            ${additionalWindowsCount + 1} window${additionalWindowsCount + 1 !== 1 ? 's' : ''} active
         </div>
     `;
 
@@ -149,6 +161,7 @@ async function validatePassword(event) {
             document.getElementById('password-overlay').style.display = 'none';
             document.getElementById('admin-content').classList.add('unlocked');
             loadConfig();
+            navigateTo('bay-control');
         } else {
             showPasswordError(result.error || 'Invalid password');
             passwordInput.value = '';
@@ -174,6 +187,7 @@ async function loadConfig() {
         if (result.success) {
             currentConfig = result.config;
             populateConfigForm(result.config);
+            populateProjectorSettings(result.config);
         } else {
             showConfigMessage(`Failed to load config: ${result.error}`, 'error');
         }
@@ -204,23 +218,43 @@ function populateConfigForm(config) {
     const league = config.leagueSettings || { enabled: false, leagueId: '' };
     document.getElementById('leagueModeEnabled').checked = league.enabled === true;
     document.getElementById('leagueId').value = league.leagueId || '';
+
+}
+
+function populateProjectorSettings(config) {
+    const proj = config.projectorSettings || { enabled: false, comPort: '', baudRate: 115200, powerOnCmd: '\\r*pow=on#\\r', powerOffCmd: '\\r*pow=off#\\r', preStartMinutes: 5, keepAliveGapMinutes: 60 };
+    const appMgr = config.appManagerSettings || { enabled: true };
+    const isAutoOn = proj.enabled || appMgr.enabled !== false;
+
+    document.getElementById('autoOnOff-switch').checked = isAutoOn;
+    document.getElementById('projector-settings-panel').style.display = isAutoOn ? 'block' : 'none';
+    const saveFooter = document.getElementById('projector-save-footer');
+    if (saveFooter) saveFooter.style.display = isAutoOn ? 'flex' : 'none';
+
+    document.getElementById('projectorComPort').value = proj.comPort || '';
+    document.getElementById('projectorBaudRate').value = String(proj.baudRate || 115200);
+    document.getElementById('projectorPowerOnCmd').value = proj.powerOnCmd || '\\r*pow=on#\\r';
+    document.getElementById('projectorPowerOffCmd').value = proj.powerOffCmd || '\\r*pow=off#\\r';
+    document.getElementById('projectorPreStartMinutes').value = proj.preStartMinutes || 5;
+    document.getElementById('projectorKeepAliveGap').value = proj.keepAliveGapMinutes || 60;
 }
 
 function toggleConfigEdit() {
-    const inputs = document.querySelectorAll('#config-form input');
+    const inputs = document.querySelectorAll('#config-form input, #config-form select');
     const toggleBtn = document.getElementById('config-toggle-btn');
     const btnIcon = document.getElementById('config-btn-icon');
     const btnText = document.getElementById('config-btn-text');
-    
+
     if (isEditMode) {
         saveConfig();
     } else {
         isEditMode = true;
         inputs.forEach(input => input.disabled = false);
         
-        toggleBtn.className = 'admin-button warning-button';
+        toggleBtn.className = 'btn btn-primary btn-block';
         toggleBtn.style.marginTop = '20px';
-        toggleBtn.style.width = '100%';
+        toggleBtn.style.padding = '16px';
+        toggleBtn.style.background = 'linear-gradient(135deg, #F59E0B, #D97706)';
         btnIcon.innerHTML = '<path d="M15,9H5V5H15M12,19A3,3 0 0,1 9,16A3,3 0 0,1 12,13A3,3 0 0,1 15,16A3,3 0 0,1 12,19M17,3H5C3.89,3 3,3.9 3,5V19A2,2 0 0,0 5,21H19A2,2 0 0,0 21,19V7L17,3Z"/>';
         btnText.textContent = 'Save Config';
         
@@ -252,7 +286,10 @@ async function saveConfig() {
             leagueSettings: {
                 enabled: document.getElementById('leagueModeEnabled').checked,
                 leagueId: document.getElementById('leagueId').value.trim()
-            }
+            },
+            // Preserve existing projector/app manager settings from current config
+            projectorSettings: currentConfig.projectorSettings || { enabled: false, comPort: '', baudRate: 115200, powerOnCmd: '\\r*pow=on#\\r', powerOffCmd: '\\r*pow=off#\\r', preStartMinutes: 5, keepAliveGapMinutes: 60 },
+            appManagerSettings: currentConfig.appManagerSettings || { enabled: true }
         };
 
         const result = await window.electronAPI.adminSaveConfig(newConfig);
@@ -261,16 +298,17 @@ async function saveConfig() {
             currentConfig = newConfig;
             
             isEditMode = false;
-            const inputs = document.querySelectorAll('#config-form input');
+            const inputs = document.querySelectorAll('#config-form input, #config-form select');
             inputs.forEach(input => input.disabled = true);
             
             const toggleBtn = document.getElementById('config-toggle-btn');
             const btnIcon = document.getElementById('config-btn-icon');
             const btnText = document.getElementById('config-btn-text');
             
-            toggleBtn.className = 'admin-button';
+            toggleBtn.className = 'btn btn-primary btn-block';
             toggleBtn.style.marginTop = '20px';
-            toggleBtn.style.width = '100%';
+            toggleBtn.style.padding = '16px';
+            toggleBtn.style.background = '';
             btnIcon.innerHTML = '<path d="M20.71,7.04C21.1,6.65 21.1,6 20.71,5.63L18.37,3.29C18,2.9 17.35,2.9 16.96,3.29L15.12,5.12L18.87,8.87M3,17.25V21H6.75L17.81,9.93L14.06,6.18L3,17.25Z"/>';
             btnText.textContent = 'Edit Config';
             
@@ -655,3 +693,85 @@ manualUnlockSwitch.addEventListener('change', (event) => {
     window.electronAPI.setManualUnlockState(isUnlocked).then(result => {
     });
 });
+
+// --- Projector / Auto On/Off ---
+
+function toggleAutoOnOff() {
+    const isEnabled = document.getElementById('autoOnOff-switch').checked;
+    document.getElementById('projector-settings-panel').style.display = isEnabled ? 'block' : 'none';
+    const saveFooter = document.getElementById('projector-save-footer');
+    if (saveFooter) saveFooter.style.display = isEnabled ? 'flex' : 'none';
+
+    if (!isEnabled) {
+        // Save immediately when toggling off
+        saveAutoOnOffState(false);
+    }
+}
+
+async function saveAutoOnOffState(enabled) {
+    try {
+        const newConfig = {
+            ...currentConfig,
+            projectorSettings: {
+                ...(currentConfig.projectorSettings || {}),
+                enabled: enabled
+            },
+            appManagerSettings: {
+                enabled: enabled
+            }
+        };
+
+        const result = await window.electronAPI.adminSaveConfig(newConfig);
+        if (result.success) {
+            currentConfig = newConfig;
+            showProjectorMessage(enabled ? '✅ Auto On/Off enabled' : '✅ Auto On/Off disabled', 'success');
+        } else {
+            showProjectorMessage(`❌ Failed to save: ${result.error}`, 'error');
+        }
+    } catch (error) {
+        showProjectorMessage(`❌ Error: ${error.message}`, 'error');
+    }
+}
+
+async function saveProjectorSettings() {
+    try {
+        const newConfig = {
+            ...currentConfig,
+            projectorSettings: {
+                enabled: true,
+                comPort: document.getElementById('projectorComPort').value.trim(),
+                baudRate: parseInt(document.getElementById('projectorBaudRate').value) || 115200,
+                powerOnCmd: document.getElementById('projectorPowerOnCmd').value.trim(),
+                powerOffCmd: document.getElementById('projectorPowerOffCmd').value.trim(),
+                preStartMinutes: parseInt(document.getElementById('projectorPreStartMinutes').value) || 5,
+                keepAliveGapMinutes: parseInt(document.getElementById('projectorKeepAliveGap').value) || 60
+            },
+            appManagerSettings: {
+                enabled: true
+            }
+        };
+
+        const result = await window.electronAPI.adminSaveConfig(newConfig);
+        if (result.success) {
+            currentConfig = newConfig;
+            showProjectorMessage(`✅ ${result.message}${result.requiresRestart ? ' Restart required.' : ''}`, 'success');
+        } else {
+            showProjectorMessage(`❌ Failed to save: ${result.error}`, 'error');
+        }
+    } catch (error) {
+        showProjectorMessage(`❌ Error: ${error.message}`, 'error');
+    }
+}
+
+function showProjectorMessage(message, type) {
+    const messageDiv = document.getElementById('projector-settings-message');
+    if (!messageDiv) return;
+    messageDiv.className = type === 'error' ? 'error-message' : 'success-message';
+    messageDiv.innerHTML = message;
+    if (type === 'success') {
+        setTimeout(() => {
+            messageDiv.innerHTML = '';
+            messageDiv.className = '';
+        }, 5000);
+    }
+}

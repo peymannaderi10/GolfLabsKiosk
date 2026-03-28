@@ -9,20 +9,51 @@
 </head>
 <body>
     <div id="lock-screen">
-        <button id="refresh-button">⟳ Refresh</button>
-        
-        <div class="lock-content">
-            <div class="lock-icon">
-                <svg viewBox="0 0 24 24">
-                    <path d="M12,17A2,2 0 0,0 14,15C14,13.89 13.1,13 12,13A2,2 0 0,0 10,15A2,2 0 0,0 12,17M18,8A2,2 0 0,1 20,10V20A2,2 0 0,1 18,22H6A2,2 0 0,1 4,20V10C4,8.89 4.9,8 6,8H7V6A5,5 0 0,1 12,1A5,5 0 0,1 17,6V8H18M12,3A3,3 0 0,0 9,6V8H15V6A3,3 0 0,0 12,3Z"/>
-                </svg>
+        <button id="refresh-button">&#x27F3; Refresh</button>
+
+        <!-- Ambient corner glows -->
+        <div class="lock-glow lock-glow--top-left"></div>
+        <div class="lock-glow lock-glow--bottom-right"></div>
+
+        <!-- Top bar -->
+        <div class="lock-topbar">
+            <div class="lock-topbar__brand">GolfLabs</div>
+            <div class="lock-topbar__status">
+                <span class="lock-topbar__icon" title="Network">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.55a11 11 0 0 1 14.08 0"/><path d="M1.42 9a16 16 0 0 1 21.16 0"/><path d="M8.53 16.11a6 6 0 0 1 6.95 0"/><circle cx="12" cy="20" r="1"/></svg>
+                </span>
+                <span class="lock-topbar__icon" title="System OK">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+                </span>
             </div>
-            
-            <h1 class="main-title">Bay Available</h1>
-            <p class="subtitle">Waiting for your next booking</p>
-            <p class="status-text">This simulator will unlock automatically when your session begins</p>
         </div>
-        
+
+        <!-- Main grid content -->
+        <div class="lock-content">
+            <div class="lock-grid">
+                <!-- Left: status + headline -->
+                <div class="lock-grid__main">
+                    <h1 class="main-title">BAY AVAILABLE</h1>
+                    <p class="subtitle">READY FOR PLAY</p>
+                </div>
+
+                <!-- Right: glass card with QR -->
+                <div class="lock-grid__side">
+                    <div class="lock-glass-card">
+                        <div class="lock-glass-card__title">Getting Started Guide</div>
+                        <img id="qr-code" class="lock-glass-card__qr" src="assets/gettingstartedQR.png" alt="QR Code" width="200" height="200" />
+                        <p class="lock-glass-card__caption">Scan to view our getting started guide</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Bottom bar -->
+        <div class="lock-bottombar">
+            <div class="lock-bottombar__label">GOLFLABS</div>
+            <div class="lock-bottombar__time" id="lock-clock"></div>
+        </div>
+
         <div class="golf-accent"></div>
     </div>
 

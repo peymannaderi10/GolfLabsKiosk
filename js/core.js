@@ -94,6 +94,8 @@ function setLockedState(isLocked, booking = null) {
 
         if (currentBooking) {
             logAccessEvent('session_ended', true, currentBooking);
+            // Notify main process to clean up apps and re-evaluate projector
+            window.electronAPI.notifySessionEnd();
         }
         currentBooking = null;
         

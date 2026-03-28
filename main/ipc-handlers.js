@@ -4,6 +4,7 @@ const fs = require('fs');
 const axios = require('axios');
 
 const { closeAdditionalWindows, recreateAdditionalWindows } = require('./windows');
+const { onSessionEnd } = require('./app-manager');
 
 function createApiClient(ctx) {
   return axios.create({
@@ -17,12 +18,20 @@ function registerIpcHandlers(ctx) {
 
   // IPC handler for renderer to request config
   ipcMain.handle('get-config', () => {
-      return ctx.config;
+      const { adminPassword, ...safeConfig } = ctx.config;
+      return safeConfig;
   });
 
   // IPC handler for renderer to get the initial list of bookings
   ipcMain.handle('get-initial-bookings', () => {
       return ctx.bookings;
+  });
+
+  // Session lifecycle — renderer notifies when a booking session ends
+  ipcMain.handle('session-ended', () => {
+    console.log('Session ended — triggering app cleanup');
+    onSessionEnd(ctx);
+    return { success: true };
   });
 
   // Admin mode IPC handlers
@@ -301,6 +310,10 @@ function registerIpcHandlers(ctx) {
       ctx.isManuallyUnlocked = newState;
       if (!newState) {
           ctx.manualUnlockEndTime = null;
+          if (ctx.manualUnlockTimer) {
+              clearTimeout(ctx.manualUnlockTimer);
+              ctx.manualUnlockTimer = null;
+          }
       }
       console.log(`Manual unlock state set to: ${ctx.isManuallyUnlocked}`);
 
