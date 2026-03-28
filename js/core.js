@@ -17,7 +17,9 @@ let manualUnlockEndTime = null; // Track when timed unlock expires
 let extensionState = 'idle';
 let extensionOptions = null; // Cached options from API
 let extensionCardInfo = null; // Cached card info from API
+let extensionMemberInfo = null; // Cached member info from API
 let selectedExtension = null; // Currently selected option { minutes, priceCents, priceFormatted }
+let useFreeMinutes = false; // Toggle state for member free minutes
 let isProcessingRemoteState = false; // Prevent broadcast loops
 
 // Broadcast extension state to all screens
@@ -27,7 +29,9 @@ function broadcastExtensionState(state, extra = {}) {
         state,
         options: extensionOptions,
         cardInfo: extensionCardInfo,
+        memberInfo: extensionMemberInfo,
         selected: selectedExtension,
+        useFreeMinutes,
         ...extra
     });
 }
@@ -281,14 +285,19 @@ async function fetchExtensionOptions() {
             return;
         }
 
-        if (!result.card) {
-            console.log('No card on file - not showing extension UI.');
+        // Allow members with enough free minutes to extend even without a card
+        const hasFreeCoverage = result.memberInfo && result.memberInfo.remainingFreeMinutes > 0 &&
+            result.options.some(opt => opt.memberPriceCents === 0);
+        if (!result.card && !hasFreeCoverage) {
+            console.log('No card on file and no free coverage - not showing extension UI.');
             extensionState = 'declined';
             return;
         }
 
         extensionOptions = result.options;
         extensionCardInfo = result.card;
+        extensionMemberInfo = result.memberInfo || null;
+        useFreeMinutes = false;
         extensionState = 'showing';
         showExtensionBanner();
         
@@ -306,49 +315,83 @@ async function fetchExtensionOptions() {
 function showExtensionBanner() {
     const banner = document.getElementById('extension-banner');
     const optionsContainer = document.getElementById('extension-options');
+    const memberToggle = document.getElementById('extension-member-toggle');
+    const checkbox = document.getElementById('extension-use-free-minutes');
 
-    // Build option buttons
+    // Show/hide member toggle
+    if (extensionMemberInfo && extensionMemberInfo.remainingFreeMinutes > 0) {
+        const mins = extensionMemberInfo.remainingFreeMinutes;
+        const hrs = Math.floor(mins / 60);
+        const remMins = mins % 60;
+        const label = hrs > 0 ? (remMins > 0 ? `${hrs}h ${remMins}m` : `${hrs}h`) : `${remMins}m`;
+        document.getElementById('extension-free-remaining').textContent = label;
+        memberToggle.classList.remove('extension-hidden');
+        checkbox.checked = useFreeMinutes;
+        checkbox.onchange = () => {
+            useFreeMinutes = checkbox.checked;
+            renderExtensionOptions();
+            broadcastExtensionState('showing');
+        };
+    } else {
+        memberToggle.classList.add('extension-hidden');
+        useFreeMinutes = false;
+    }
+
+    renderExtensionOptions();
+
+    banner.classList.remove('extension-hidden');
+    document.getElementById('extension-dismiss-btn').onclick = dismissExtension;
+    window.electronAPI.setIgnoreMouseEvents(false);
+}
+
+function renderExtensionOptions() {
+    const optionsContainer = document.getElementById('extension-options');
     optionsContainer.innerHTML = '';
 
     extensionOptions.forEach(opt => {
+        const price = useFreeMinutes && opt.memberPriceCents !== undefined
+            ? opt.memberPriceFormatted
+            : opt.priceFormatted;
         const btn = document.createElement('button');
         btn.className = 'extension-option-btn';
-        btn.innerHTML = `<span class="option-duration">${opt.minutes} min</span><span class="option-price">${opt.priceFormatted}</span>`;
+        btn.innerHTML = `<span class="option-duration">${opt.minutes} min</span><span class="option-price">${price}</span>`;
         btn.addEventListener('click', () => selectExtensionOption(opt));
         optionsContainer.appendChild(btn);
     });
-
-    banner.classList.remove('extension-hidden');
-
-    // Wire up dismiss button
-    document.getElementById('extension-dismiss-btn').onclick = dismissExtension;
-
-    // Re-enable mouse events on the window so the banner is interactive
-    window.electronAPI.setIgnoreMouseEvents(false);
 }
 
 function selectExtensionOption(option) {
     selectedExtension = option;
     extensionState = 'confirming';
 
-    // Hide the banner, show confirmation
     document.getElementById('extension-banner').classList.add('extension-hidden');
 
-    const brandLabel = extensionCardInfo.brand
-        ? extensionCardInfo.brand.charAt(0).toUpperCase() + extensionCardInfo.brand.slice(1)
-        : 'Card';
+    const isMemberPricing = useFreeMinutes && option.memberPriceCents !== undefined;
+    const displayPrice = isMemberPricing ? option.memberPriceFormatted : option.priceFormatted;
+    const displayCents = isMemberPricing ? option.memberPriceCents : option.priceCents;
+    const freeMinApplied = isMemberPricing ? (option.freeMinutesApplied || 0) : 0;
 
-    document.getElementById('extension-confirm-detail').textContent =
-        `Add ${option.minutes} minutes for ${option.priceFormatted}`;
-    document.getElementById('extension-confirm-card-info').textContent =
-        `Charging ${brandLabel} ending in ${extensionCardInfo.last4}`;
+    const detailEl = document.getElementById('extension-confirm-detail');
+    const cardInfoEl = document.getElementById('extension-confirm-card-info');
+
+    if (displayCents === 0) {
+        detailEl.textContent = `Add ${option.minutes} minutes — free with membership`;
+        cardInfoEl.textContent = `${freeMinApplied} free minutes will be used`;
+    } else {
+        detailEl.textContent = `Add ${option.minutes} minutes for ${displayPrice}`;
+        const brandLabel = extensionCardInfo.brand
+            ? extensionCardInfo.brand.charAt(0).toUpperCase() + extensionCardInfo.brand.slice(1)
+            : 'Card';
+        const chargeText = `Charging ${brandLabel} ending in ${extensionCardInfo.last4}`;
+        cardInfoEl.textContent = freeMinApplied > 0
+            ? `${freeMinApplied} min free · ${chargeText}`
+            : chargeText;
+    }
 
     document.getElementById('extension-confirm').classList.remove('extension-hidden');
-
     document.getElementById('extension-confirm-btn').onclick = confirmExtension;
     document.getElementById('extension-cancel-btn').onclick = dismissExtension;
-    
-    // Broadcast to other screens
+
     broadcastExtensionState('confirming');
 }
 
@@ -360,17 +403,18 @@ async function confirmExtension() {
 
     const statusEl = document.getElementById('extension-status');
     const statusText = document.getElementById('extension-status-text');
-    statusText.textContent = 'Processing payment...';
+    const isFree = useFreeMinutes && selectedExtension.memberPriceCents === 0;
+    statusText.textContent = isFree ? 'Applying free minutes...' : 'Processing payment...';
     statusText.classList.remove('error');
     statusEl.classList.remove('extension-hidden');
-    
-    // Broadcast processing state
-    broadcastExtensionState('processing', { statusText: 'Processing payment...' });
+
+    broadcastExtensionState('processing', { statusText: statusText.textContent });
 
     try {
         const result = await window.electronAPI.extendBooking(
             currentBooking.id,
-            selectedExtension.minutes
+            selectedExtension.minutes,
+            useFreeMinutes
         );
         console.log('Extension successful:', result);
 
@@ -431,7 +475,9 @@ function dismissExtension() {
     selectedExtension = null;
     extensionOptions = null;
     extensionCardInfo = null;
-    
+    extensionMemberInfo = null;
+    useFreeMinutes = false;
+
     // Broadcast to other screens
     broadcastExtensionState('declined');
 }
@@ -441,6 +487,8 @@ function resetExtensionState() {
     selectedExtension = null;
     extensionOptions = null;
     extensionCardInfo = null;
+    extensionMemberInfo = null;
+    useFreeMinutes = false;
 
     // Hide all extension UI
     const banner = document.getElementById('extension-banner');
@@ -490,7 +538,9 @@ function handleRemoteExtensionState(stateData) {
     extensionState = stateData.state;
     extensionOptions = stateData.options;
     extensionCardInfo = stateData.cardInfo;
+    extensionMemberInfo = stateData.memberInfo || null;
     selectedExtension = stateData.selected;
+    useFreeMinutes = stateData.useFreeMinutes || false;
     
     // Update UI based on state
     switch (stateData.state) {
@@ -498,16 +548,31 @@ function handleRemoteExtensionState(stateData) {
             showExtensionBanner();
             break;
         case 'confirming':
-            // Show confirmation UI with the selected option
             document.getElementById('extension-banner').classList.add('extension-hidden');
             if (selectedExtension && extensionCardInfo) {
-                const brandLabel = extensionCardInfo.brand
-                    ? extensionCardInfo.brand.charAt(0).toUpperCase() + extensionCardInfo.brand.slice(1)
-                    : 'Card';
-                document.getElementById('extension-confirm-detail').textContent =
-                    `Add ${selectedExtension.minutes} minutes for ${selectedExtension.priceFormatted}`;
-                document.getElementById('extension-confirm-card-info').textContent =
-                    `Charging ${brandLabel} ending in ${extensionCardInfo.last4}`;
+                // Reuse the same logic as selectExtensionOption for consistent display
+                const isMemberPricing = useFreeMinutes && selectedExtension.memberPriceCents !== undefined;
+                const displayPrice = isMemberPricing ? selectedExtension.memberPriceFormatted : selectedExtension.priceFormatted;
+                const displayCents = isMemberPricing ? selectedExtension.memberPriceCents : selectedExtension.priceCents;
+                const freeMinApplied = isMemberPricing ? (selectedExtension.freeMinutesApplied || 0) : 0;
+
+                const detailEl = document.getElementById('extension-confirm-detail');
+                const cardInfoEl = document.getElementById('extension-confirm-card-info');
+
+                if (displayCents === 0) {
+                    detailEl.textContent = `Add ${selectedExtension.minutes} minutes — free with membership`;
+                    cardInfoEl.textContent = `${freeMinApplied} free minutes will be used`;
+                } else {
+                    detailEl.textContent = `Add ${selectedExtension.minutes} minutes for ${displayPrice}`;
+                    const brandLabel = extensionCardInfo.brand
+                        ? extensionCardInfo.brand.charAt(0).toUpperCase() + extensionCardInfo.brand.slice(1)
+                        : 'Card';
+                    const chargeText = `Charging ${brandLabel} ending in ${extensionCardInfo.last4}`;
+                    cardInfoEl.textContent = freeMinApplied > 0
+                        ? `${freeMinApplied} min free · ${chargeText}`
+                        : chargeText;
+                }
+
                 document.getElementById('extension-confirm').classList.remove('extension-hidden');
                 document.getElementById('extension-confirm-btn').onclick = confirmExtension;
                 document.getElementById('extension-cancel-btn').onclick = dismissExtension;

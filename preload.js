@@ -41,7 +41,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
   // Session extension
   getExtensionOptions: (bookingId) => ipcRenderer.invoke('get-extension-options', bookingId),
-  extendBooking: (bookingId, minutes) => ipcRenderer.invoke('extend-booking', bookingId, minutes),
+  extendBooking: (bookingId, minutes, useFreeMinutes) => ipcRenderer.invoke('extend-booking', bookingId, minutes, useFreeMinutes),
   
   // Extension state sync across screens
   broadcastExtensionState: (stateData) => ipcRenderer.send('extension-state-broadcast', stateData),

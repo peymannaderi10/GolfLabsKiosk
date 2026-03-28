@@ -423,18 +423,19 @@ function registerIpcHandlers(ctx) {
       }
   });
 
-  ipcMain.handle('extend-booking', async (event, bookingId, extensionMinutes) => {
+  ipcMain.handle('extend-booking', async (event, bookingId, extensionMinutes, useFreeMinutes) => {
       if (!ctx.config) {
           throw new Error('Kiosk config not loaded');
       }
       const url = `${ctx.config.apiBaseUrl}/bookings/${bookingId}/extend`;
-      console.log(`Extending booking at: ${url} for ${extensionMinutes} minutes`);
+      console.log(`Extending booking at: ${url} for ${extensionMinutes} minutes (useFreeMinutes: ${!!useFreeMinutes})`);
 
       try {
           const response = await api.post(url, {
               extensionMinutes,
               locationId: ctx.config.locationId,
-              bayId: ctx.config.bayId
+              bayId: ctx.config.bayId,
+              useFreeMinutes: !!useFreeMinutes,
           });
           console.log('Extend booking response:', response.data);
           return response.data;
