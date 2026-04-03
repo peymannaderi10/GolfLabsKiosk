@@ -13,10 +13,8 @@
 # -- Configuration -----------------------------------------------------------
 $KioskProcessName  = "Golf Labs Kiosk"
 $KioskExeName      = "Golf Labs Kiosk.exe"
-$SimProcessName    = "UneekorLauncher"
 $ScriptDir         = Split-Path -Parent $MyInvocation.MyCommand.Definition
 $KioskExe          = Join-Path $ScriptDir "Golf Labs Kiosk.exe"
-$SimExe            = "C:\Uneekor\Launcher\UneekorLauncher.exe"
 $LogDir            = Join-Path $ScriptDir "logs"
 $InitialWaitSec    = 45
 $CheckIntervalSec  = 30
@@ -61,8 +59,8 @@ try {
 
 Write-Log "===== Watchdog started (PID $PID) ====="
 Write-Log "Kiosk exe: $KioskExe"
-Write-Log "Simulator exe: $SimExe"
 Write-Log "Check interval: ${CheckIntervalSec}s"
+Write-Log "Note: Uneekor Launcher lifecycle managed by kiosk app (not watchdog)"
 
 # -- Electron-aware process helpers -------------------------------------------
 # Electron apps spawn multiple child processes (renderer, GPU, utility) that
@@ -84,10 +82,6 @@ function Get-KioskRootProcesses {
         }
     }
     return $roots
-}
-
-function Get-SimProcesses {
-    return @(Get-Process -Name $SimProcessName -ErrorAction SilentlyContinue)
 }
 
 # Kill a root kiosk process and all its children via taskkill /T (tree kill)
@@ -122,27 +116,6 @@ function Remove-DuplicateKioskInstances {
     Write-Log "  Kept instance PID $($keep.ProcessId) (started $keepStart)"
 }
 
-function Remove-DuplicateSimInstances {
-    param([System.Diagnostics.Process[]]$Processes)
-    if ($Processes.Count -le 1) { return }
-
-    Write-Log "WARNING: $($Processes.Count) simulator instances detected - killing duplicates"
-    $sorted = $Processes | Sort-Object StartTime
-    $keep = $sorted[0]
-    $dupes = $sorted | Select-Object -Skip 1
-
-    foreach ($proc in $dupes) {
-        try {
-            Write-Log "  Killing duplicate PID $($proc.Id) (started $($proc.StartTime.ToString('HH:mm:ss')))"
-            $proc.Kill()
-            $proc.WaitForExit(5000)
-        } catch {
-            Write-Log "  Failed to kill PID $($proc.Id): $_"
-        }
-    }
-    Write-Log "  Kept PID $($keep.Id) (started $($keep.StartTime.ToString('HH:mm:ss')))"
-}
-
 # -- Initial wait --------------------------------------------------------------
 Write-Log "Waiting ${InitialWaitSec}s for system startup..."
 Start-Sleep -Seconds $InitialWaitSec
@@ -165,23 +138,6 @@ try {
             }
         } elseif ($kioskRoots.Count -gt 1) {
             Remove-DuplicateKioskInstances -Roots $kioskRoots
-        }
-
-        # -- Simulator --
-        if (Test-Path $SimExe) {
-            $simProcs = Get-SimProcesses
-
-            if ($simProcs.Count -eq 0) {
-                Write-Log "Simulator not running - launching..."
-                try {
-                    Start-Process -FilePath $SimExe
-                    Write-Log "Simulator launched"
-                } catch {
-                    Write-Log "ERROR: Failed to launch simulator: $_"
-                }
-            } elseif ($simProcs.Count -gt 1) {
-                Remove-DuplicateSimInstances -Processes $simProcs
-            }
         }
 
         Start-Sleep -Seconds $CheckIntervalSec

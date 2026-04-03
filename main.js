@@ -52,8 +52,8 @@ app.on('ready', () => {
   registerIpcHandlers(ctx);
   connectToWebSocket(ctx);
   setupPolling(ctx);
+  initAppManager(ctx);  // Register bay lifecycle hooks before projector fires first schedule
   initProjector(ctx);
-  initAppManager(ctx);
 });
 
 app.on('window-all-closed', function () {

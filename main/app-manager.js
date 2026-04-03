@@ -1,11 +1,17 @@
 /**
  * App Manager
  *
- * Kills any process running from C:\Uneekor when a booking session ends,
- * except the Uneekor Launcher itself.
+ * Manages Uneekor application lifecycle in sync with bay booking schedule:
+ * - Launches Uneekor Launcher when bay becomes active (pre-start or booking start)
+ * - Kills Uneekor apps when bay becomes idle (no booking within keepAlive gap)
+ *
+ * Hooks into the projector module's bay lifecycle events so both systems
+ * follow the same pre-start / keep-alive schedule.
  */
 
-const { execFile } = require('child_process');
+const { execFile, exec } = require('child_process');
+const path = require('path');
+const fs = require('fs');
 
 const UNEEKOR_PATH = 'C:\\Uneekor';
 
@@ -22,6 +28,9 @@ const PROTECTED_DIRS = [
   'device',
   'installer',
 ];
+
+// The launcher executable to start
+const LAUNCHER_EXE_PATH = path.join(UNEEKOR_PATH, 'Launcher', 'UneekorLauncher.exe');
 
 /**
  * Get all running processes with their executable paths via PowerShell.
@@ -50,6 +59,42 @@ function getRunningProcesses() {
       }
       resolve(processes);
     });
+  });
+}
+
+/**
+ * Check if the Uneekor Launcher is already running.
+ */
+async function isLauncherRunning() {
+  const processes = await getRunningProcesses();
+  return processes.some(p => {
+    const nameLower = (p.name + '.exe').toLowerCase();
+    return nameLower === 'uneekorlauncher.exe';
+  });
+}
+
+/**
+ * Launch the Uneekor Launcher if it exists and isn't already running.
+ */
+async function launchUneekor() {
+  if (!fs.existsSync(LAUNCHER_EXE_PATH)) {
+    console.log(`[AppManager] Launcher not found at ${LAUNCHER_EXE_PATH} — skipping`);
+    return;
+  }
+
+  const running = await isLauncherRunning();
+  if (running) {
+    console.log('[AppManager] Uneekor Launcher already running — skipping launch');
+    return;
+  }
+
+  console.log(`[AppManager] Launching Uneekor: ${LAUNCHER_EXE_PATH}`);
+  exec(`start "" "${LAUNCHER_EXE_PATH}"`, { cwd: path.dirname(LAUNCHER_EXE_PATH) }, (error) => {
+    if (error) {
+      console.error(`[AppManager] Failed to launch Uneekor: ${error.message}`);
+    } else {
+      console.log('[AppManager] Uneekor Launcher started');
+    }
   });
 }
 
@@ -96,6 +141,44 @@ async function killUneekorApps() {
 }
 
 /**
+ * Kill ALL Uneekor processes including the launcher.
+ */
+async function killAllUneekor() {
+  console.log('[AppManager] Killing ALL Uneekor processes (including launcher)...');
+
+  const processes = await getRunningProcesses();
+
+  const uneekorProcs = processes.filter(p => {
+    if (!p.path) return false;
+    const pathLower = p.path.toLowerCase();
+    if (!pathLower.startsWith(UNEEKOR_PATH.toLowerCase())) return false;
+    // Skip protected directories (drivers, tools)
+    const relativePath = pathLower.substring(UNEEKOR_PATH.length + 1);
+    const topDir = relativePath.split('\\')[0];
+    if (PROTECTED_DIRS.includes(topDir)) return false;
+    return true;
+  });
+
+  if (uneekorProcs.length === 0) {
+    console.log('[AppManager] No Uneekor processes were running');
+    return [];
+  }
+
+  console.log(`[AppManager] Found ${uneekorProcs.length} Uneekor process(es) to kill`);
+
+  const results = await Promise.all(
+    uneekorProcs.map(proc => killByPid(proc.pid, proc.name))
+  );
+
+  const killed = results.filter(r => r.killed);
+  if (killed.length > 0) {
+    console.log(`[AppManager] Closed: ${killed.map(r => r.name).join(', ')}`);
+  }
+
+  return results;
+}
+
+/**
  * Kill a process by PID.
  */
 function killByPid(pid, name) {
@@ -113,18 +196,19 @@ function killByPid(pid, name) {
 }
 
 /**
- * Called when a booking session ends.
+ * Called when a booking session ends (renderer-driven).
+ * Kills simulator apps but keeps launcher alive if bay is still active.
  */
 async function onSessionEnd(ctx) {
   const settings = ctx.config.appManagerSettings;
   if (!settings || !settings.enabled) return;
 
-  console.log('[AppManager] Session ended — cleaning up apps');
+  console.log('[AppManager] Session ended — cleaning up simulator apps');
   await killUneekorApps();
 }
 
 /**
- * Initialize the app manager.
+ * Initialize the app manager and register bay lifecycle hooks.
  */
 function initAppManager(ctx) {
   const settings = ctx.config.appManagerSettings;
@@ -133,11 +217,27 @@ function initAppManager(ctx) {
     return;
   }
 
-  console.log('[AppManager] Initialized — will close Uneekor apps on session end');
+  const { onBayActive, onBayIdle } = require('./projector');
+
+  // When bay becomes active (pre-start or booking start) — launch Uneekor
+  onBayActive(() => {
+    console.log('[AppManager] Bay active — launching Uneekor');
+    launchUneekor();
+  });
+
+  // When bay becomes idle (no bookings within keepAlive gap) — kill everything
+  onBayIdle(() => {
+    console.log('[AppManager] Bay idle — closing all Uneekor apps');
+    killAllUneekor();
+  });
+
+  console.log('[AppManager] Initialized — Uneekor follows bay booking schedule');
 }
 
 module.exports = {
   initAppManager,
   onSessionEnd,
   killUneekorApps,
+  killAllUneekor,
+  launchUneekor,
 };

@@ -5,6 +5,9 @@
  * - Powers ON 5 minutes before a booking starts
  * - Powers OFF after a booking ends (if no booking within the keepAliveGap)
  * - Gracefully skips if COM port is unavailable
+ *
+ * Also drives bay lifecycle callbacks (onBayActive / onBayIdle) so other
+ * systems (e.g., App Manager) can follow the same schedule.
  */
 
 let SerialPort;
@@ -25,9 +28,38 @@ const COOLDOWN_MS = 100 * 1000;
 
 let port = null;
 let isProjectorOn = null; // null = unknown, true = on, false = off
+let isBayActive = false; // tracks whether the bay is in "active" state
 let lastPowerOffTime = 0;
 let preStartTimer = null;
 let postEndTimer = null;
+
+// Lifecycle callbacks — other modules register to follow the same schedule
+const lifecycleCallbacks = {
+  onBayActive: [],  // called when bay becomes active (pre-start or booking start)
+  onBayIdle: [],    // called when bay becomes idle (no bookings within keepAlive gap)
+};
+
+function onBayActive(fn) {
+  lifecycleCallbacks.onBayActive.push(fn);
+}
+
+function onBayIdle(fn) {
+  lifecycleCallbacks.onBayIdle.push(fn);
+}
+
+function emitBayActive(ctx) {
+  if (isBayActive) return; // already active
+  isBayActive = true;
+  console.log('[BayLifecycle] Bay becoming ACTIVE');
+  lifecycleCallbacks.onBayActive.forEach(fn => fn(ctx));
+}
+
+function emitBayIdle(ctx) {
+  if (!isBayActive) return; // already idle
+  isBayActive = false;
+  console.log('[BayLifecycle] Bay becoming IDLE');
+  lifecycleCallbacks.onBayIdle.forEach(fn => fn(ctx));
+}
 
 /**
  * Parse a time string like "2:30 PM" into a Date object for today,
@@ -196,6 +228,7 @@ function scheduleFromBookings(ctx) {
     // No bookings — send power off (always send to be safe)
     console.log('[Projector] No bookings — powering off');
     powerOff();
+    emitBayIdle(ctx);
     return;
   }
 
@@ -211,6 +244,7 @@ function scheduleFromBookings(ctx) {
       console.log(`[Projector] Active booking found — powering on`);
       powerOn();
     }
+    emitBayActive(ctx);
 
     // Schedule check at end of this booking
     const msUntilEnd = activeBooking.end - now;
@@ -231,6 +265,16 @@ function scheduleFromBookings(ctx) {
         console.log(`[Projector] Next booking in ${Math.ceil(msUntilStart / 60000)}m — powering on (pre-start)`);
         powerOn();
       }
+      emitBayActive(ctx);
+      // Schedule re-evaluation at booking end so we can power off
+      const msUntilEnd = nextBooking.end - now;
+      if (msUntilEnd > 0) {
+        postEndTimer = setTimeout(() => {
+          console.log('[Projector] Booking ended (from pre-start) — re-evaluating');
+          scheduleFromBookings(ctx);
+        }, msUntilEnd + 2000);
+        console.log(`[Projector] Will re-evaluate at booking end in ${Math.ceil(msUntilEnd / 60000)}m`);
+      }
     } else {
       // Schedule pre-start
       const scheduleIn = msUntilStart - preStartMs;
@@ -247,6 +291,7 @@ function scheduleFromBookings(ctx) {
       if (msUntilStart > keepAliveMs) {
         console.log(`[Projector] No booking within ${keepAliveGapMinutes}m — powering off`);
         powerOff();
+        emitBayIdle(ctx);
       } else if (isProjectorOn !== false) {
         console.log(`[Projector] Next booking within ${keepAliveGapMinutes}m — keeping projector on`);
       }
@@ -255,6 +300,7 @@ function scheduleFromBookings(ctx) {
     // All bookings are in the past — send power off (always send to be safe)
     console.log('[Projector] All bookings ended — powering off');
     powerOff();
+    emitBayIdle(ctx);
   }
 }
 
@@ -282,6 +328,7 @@ function handleBookingEnd(ctx, endedBooking, allBookings) {
 
   console.log(`[Projector] No booking within ${keepAliveGapMinutes}m — powering off`);
   powerOff();
+  emitBayIdle(ctx);
 }
 
 /**
@@ -337,4 +384,6 @@ module.exports = {
   powerOn,
   powerOff,
   queryStatus,
+  onBayActive,
+  onBayIdle,
 };
