@@ -26,6 +26,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   adminSaveConfig: (config) => ipcRenderer.invoke('admin-save-config', config),
   adminValidatePassword: (password) => ipcRenderer.invoke('admin-validate-password', password),
   adminChangePassword: (currentPassword, newPassword) => ipcRenderer.invoke('admin-change-password', { currentPassword, newPassword }),
+  adminTestProjector: () => ipcRenderer.invoke('admin-test-projector'),
   
   // Console log viewer
   getLogs: () => ipcRenderer.invoke('admin-get-logs'),
@@ -51,8 +52,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
   notifySessionEnd: () => ipcRenderer.invoke('session-ended'),
 
   // League mode APIs
+  isLeagueDisplay: () => ipcRenderer.invoke('is-league-display'),
   getLeagueSettings: () => ipcRenderer.invoke('get-league-settings'),
   getLeagueState: (userId) => ipcRenderer.invoke('get-league-state', userId),
+  getLeaguePlayers: (leagueId, query) => ipcRenderer.invoke('get-league-players', leagueId, query),
+  getLeagueStateByPlayerId: (leagueId, playerId) => ipcRenderer.invoke('get-league-state-by-player-id', leagueId, playerId),
   submitLeagueScore: (leagueId, scoreData) => ipcRenderer.invoke('submit-league-score', leagueId, scoreData),
   getLeagueLeaderboard: (leagueId) => ipcRenderer.invoke('get-league-leaderboard', leagueId),
   onLeagueScoreUpdate: (callback) => ipcRenderer.on('league-score-update', (_event, payload) => callback(payload)),

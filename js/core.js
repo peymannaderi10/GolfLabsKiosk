@@ -11,6 +11,9 @@ let localBookings = []; // This is now the definitive in-memory store for the re
 let heartbeatInterval = null;
 let isManuallyUnlocked = false;
 let manualUnlockEndTime = null; // Track when timed unlock expires
+let isLeagueModeActive = false;
+let leagueModeLeagueId = null;
+let leagueModeEndTime = null; // ISO string or HH:MM for auto-lock
 
 // Session extension state machine
 // States: idle | loading | showing | confirming | processing | declined
@@ -39,9 +42,8 @@ function broadcastExtensionState(state, extra = {}) {
 const LOCAL_CHECK_INTERVAL_MS = 5000;  // Check every 5 seconds
 
 function logAccessEvent(action, success, booking = null) {
-    // Do not log session events for manual admin overrides
-    if (booking && booking.id === 'manual-override') {
-        console.log("Skipping access log for manual override action.");
+    // Do not log session events for manual admin overrides or league mode
+    if (booking && (booking.id === 'manual-override' || booking.id === 'league-mode')) {
         return;
     }
 
@@ -92,9 +94,8 @@ function setLockedState(isLocked, booking = null) {
         // Reset extension state when screen locks
         resetExtensionState();
 
-        if (currentBooking) {
+        if (currentBooking && currentBooking.id !== 'league-mode' && currentBooking.id !== 'manual-override') {
             logAccessEvent('session_ended', true, currentBooking);
-            // Notify main process to clean up apps and re-evaluate projector
             window.electronAPI.notifySessionEnd();
         }
         currentBooking = null;
@@ -141,6 +142,15 @@ function parseTime(timeString) {
     return date;
 }
 
+// Called by league.js when league mode is toggled via socket event
+function setLeagueModeState(active, leagueId, endTime) {
+    isLeagueModeActive = active;
+    leagueModeLeagueId = leagueId;
+    leagueModeEndTime = endTime || null;
+    console.log(`League mode state set: active=${active}, leagueId=${leagueId}, endTime=${endTime}`);
+    checkForActiveBooking(localBookings);
+}
+
 function checkForActiveBooking(bookings) {
     // Priority 1: Check for manual override
     if (isManuallyUnlocked) {
@@ -148,13 +158,44 @@ function checkForActiveBooking(bookings) {
             id: 'manual-override',
             startTime: 'N/A',
             endTime: 'N/A',
-            endTimeISO: manualUnlockEndTime, // Store raw ISO timestamp for accurate countdown
+            endTimeISO: manualUnlockEndTime,
             user: { name: 'Admin Override' }
         });
         return;
     }
 
-    // Priority 2: Proceed with normal booking logic
+    // Priority 2: League mode auto-unlock
+    if (isLeagueModeActive) {
+        // Build an end time ISO for countdown/auto-lock
+        let endTimeISO = null;
+        if (leagueModeEndTime) {
+            const today = new Date();
+            const [h, m] = leagueModeEndTime.split(':').map(Number);
+            const end = new Date(today.getFullYear(), today.getMonth(), today.getDate(), h, m, 0);
+            if (end <= new Date()) {
+                // League time has passed — deactivate
+                isLeagueModeActive = false;
+                leagueModeLeagueId = null;
+                leagueModeEndTime = null;
+                // Fall through to normal booking logic
+            } else {
+                endTimeISO = end.toISOString();
+            }
+        }
+
+        if (isLeagueModeActive) {
+            setLockedState(false, {
+                id: 'league-mode',
+                startTime: 'N/A',
+                endTime: leagueModeEndTime || 'N/A',
+                endTimeISO: endTimeISO,
+                user: { name: 'League Mode' }
+            });
+            return;
+        }
+    }
+
+    // Priority 3: Proceed with normal booking logic
     if (!config || !bookings) return;
 
     const now = new Date();
@@ -162,9 +203,10 @@ function checkForActiveBooking(bookings) {
         if (b.bayId !== config.bayId) return false;
         // Only consider confirmed bookings - ignore abandoned, cancelled, etc.
         if (b.status !== 'confirmed') return false;
-        
-        const startTime = parseTime(b.startTime);
-        const endTime = parseTime(b.endTime);
+
+        // Prefer ISO timestamps (handles cross-midnight bookings correctly)
+        const startTime = b.startTimeISO ? new Date(b.startTimeISO) : parseTime(b.startTime);
+        const endTime = b.endTimeISO ? new Date(b.endTimeISO) : parseTime(b.endTime);
 
         return now >= startTime && now < endTime;
     });
@@ -191,6 +233,34 @@ function checkForActiveBooking(bookings) {
 
 function updateCountdown() {
     if (!currentBooking) return;
+    if (currentBooking.id === 'league-mode') {
+        if (!currentBooking.endTimeISO) {
+            countdown.textContent = 'League Mode';
+            return;
+        }
+        const now = new Date();
+        const end = new Date(currentBooking.endTimeISO);
+        const diff = end - now;
+        if (diff <= 0) {
+            countdown.textContent = 'Time expired';
+            clearInterval(countdownInterval);
+            countdownInterval = null;
+            isLeagueModeActive = false;
+            leagueModeLeagueId = null;
+            leagueModeEndTime = null;
+            setLockedState(true);
+            return;
+        }
+        // Show countdown only in last 2 minutes
+        if (diff <= 120000) {
+            const mins = Math.floor(diff / 60000);
+            const secs = Math.floor((diff % 60000) / 1000);
+            countdown.textContent = `${mins}m ${secs}s`;
+        } else {
+            countdown.textContent = 'League Mode';
+        }
+        return;
+    }
 
     const now = new Date();
     // Use ISO timestamp if available (for manual override), otherwise parse the formatted time
@@ -239,7 +309,7 @@ function getExtensionSettings() {
 function checkExtensionTrigger(diffMs) {
     const settings = getExtensionSettings();
     if (!settings.enabled) return;
-    if (!currentBooking || currentBooking.id === 'manual-override') return;
+    if (!currentBooking || currentBooking.id === 'manual-override' || currentBooking.id === 'league-mode') return;
     if (extensionState !== 'idle') return;
 
     const triggerMs = settings.triggerMinutes * 60 * 1000;
@@ -255,13 +325,13 @@ function checkExtensionTrigger(diffMs) {
         if (b.bayId !== config.bayId) return false;
         // Only consider confirmed bookings as blocking
         if (b.status !== 'confirmed') return false;
-        const bStart = parseTime(b.startTime);
+        const bStart = b.startTimeISO ? new Date(b.startTimeISO) : parseTime(b.startTime);
         // Use >= to catch back-to-back bookings (next starts exactly when current ends)
         return bStart >= currentEndTime;
     });
 
     if (nextBooking) {
-        const nextStart = parseTime(nextBooking.startTime);
+        const nextStart = nextBooking.startTimeISO ? new Date(nextBooking.startTimeISO) : parseTime(nextBooking.startTime);
         const gapMinutes = (nextStart - currentEndTime) / (1000 * 60);
         if (gapMinutes < 15) {
             console.log(`Extension skipped: only ${gapMinutes.toFixed(0)} min gap before next booking.`);
@@ -516,13 +586,22 @@ async function initialize() {
     const unlockState = await window.electronAPI.getManualUnlockState();
     isManuallyUnlocked = unlockState.unlocked;
     manualUnlockEndTime = unlockState.endTime;
-    
+
+    // Get league mode state (applies to all windows — unlocks all screens)
+    const leagueSettings = await window.electronAPI.getLeagueSettings();
+    isLeagueModeActive = leagueSettings?.enabled || false;
+    leagueModeLeagueId = leagueSettings?.leagueId || null;
+    leagueModeEndTime = leagueSettings?.endTime || null;
+
     // Get the initial bookings from the main process's memory.
     const initialBookings = await window.electronAPI.getInitialBookings();
     localBookings = initialBookings;
-    
+
     // Set the correct state, which will also start the high-frequency local check.
     checkForActiveBooking(localBookings);
+
+    // Signal that core initialization is complete (league.js listens for this)
+    document.dispatchEvent(new Event('kiosk-initialized'));
 
     // Start the heartbeat interval. This logic is unchanged.
     startHeartbeat();

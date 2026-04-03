@@ -491,20 +491,22 @@ function renderBookings(bookings) {
     
     const now = new Date();
     
-    // Sort bookings by start time (use startTime camelCase property)
-    const sortedBookings = [...bookings].sort((a, b) => 
-        parseTimeString(a.startTime) - parseTimeString(b.startTime)
-    );
-    
-    // Categorize bookings
-    const activeBookings = sortedBookings.filter(b => {
-        const start = parseTimeString(b.startTime);
-        const end = parseTimeString(b.endTime);
-        return now >= start && now <= end;
+    // Sort bookings by start time (prefer ISO timestamps for cross-midnight accuracy)
+    const sortedBookings = [...bookings].sort((a, b) => {
+        const aStart = a.startTimeISO ? new Date(a.startTimeISO) : parseTimeString(a.startTime);
+        const bStart = b.startTimeISO ? new Date(b.startTimeISO) : parseTimeString(b.startTime);
+        return aStart - bStart;
     });
     
+    // Categorize bookings (prefer ISO timestamps for cross-midnight accuracy)
+    const activeBookings = sortedBookings.filter(b => {
+        const start = b.startTimeISO ? new Date(b.startTimeISO) : parseTimeString(b.startTime);
+        const end = b.endTimeISO ? new Date(b.endTimeISO) : parseTimeString(b.endTime);
+        return now >= start && now <= end;
+    });
+
     const upcomingBookings = sortedBookings.filter(b => {
-        const start = parseTimeString(b.startTime);
+        const start = b.startTimeISO ? new Date(b.startTimeISO) : parseTimeString(b.startTime);
         return start > now;
     });
     
@@ -516,7 +518,8 @@ function renderBookings(bookings) {
         timeUntilEl.className = 'info-card-value highlight';
     } else if (upcomingBookings.length > 0) {
         const nextBooking = upcomingBookings[0];
-        const timeUntil = parseTimeString(nextBooking.startTime) - now;
+        const nextStart = nextBooking.startTimeISO ? new Date(nextBooking.startTimeISO) : parseTimeString(nextBooking.startTime);
+        const timeUntil = nextStart - now;
         timeUntilEl.textContent = formatDuration(timeUntil);
         timeUntilEl.className = 'info-card-value warning';
     } else {
@@ -546,9 +549,9 @@ function renderBookings(bookings) {
 }
 
 function renderBookingItem(booking, status) {
-    const start = parseTimeString(booking.startTime);
-    const end = parseTimeString(booking.endTime);
-    
+    const start = booking.startTimeISO ? new Date(booking.startTimeISO) : parseTimeString(booking.startTime);
+    const end = booking.endTimeISO ? new Date(booking.endTimeISO) : parseTimeString(booking.endTime);
+
     return `
         <div class="booking-item ${status}">
             <span class="booking-status ${status}">${status === 'active' ? 'Active Now' : 'Upcoming'}</span>
@@ -582,16 +585,16 @@ async function triggerManualUnlock() {
     
     // Check for any booking conflicts (active or upcoming)
     const conflicts = cachedBookings.filter(b => {
-        const bookingStart = parseTimeString(b.startTime);
-        const bookingEnd = parseTimeString(b.endTime);
+        const bookingStart = b.startTimeISO ? new Date(b.startTimeISO) : parseTimeString(b.startTime);
+        const bookingEnd = b.endTimeISO ? new Date(b.endTimeISO) : parseTimeString(b.endTime);
         // Check if unlock period overlaps with booking
         return (now < bookingEnd && unlockEnd > bookingStart);
     });
-    
+
     if (conflicts.length > 0) {
         const conflict = conflicts[0];
-        const conflictStart = parseTimeString(conflict.startTime);
-        const conflictEnd = parseTimeString(conflict.endTime);
+        const conflictStart = conflict.startTimeISO ? new Date(conflict.startTimeISO) : parseTimeString(conflict.startTime);
+        const conflictEnd = conflict.endTimeISO ? new Date(conflict.endTimeISO) : parseTimeString(conflict.endTime);
         
         // Check if there's an active booking vs future conflict
         const isActiveBooking = now >= conflictStart && now <= conflictEnd;
@@ -760,6 +763,19 @@ async function saveProjectorSettings() {
         }
     } catch (error) {
         showProjectorMessage(`❌ Error: ${error.message}`, 'error');
+    }
+}
+
+async function testProjectorConnection() {
+    try {
+        const result = await window.electronAPI.adminTestProjector();
+        if (result.success) {
+            showProjectorMessage(result.message, 'success');
+        } else {
+            showProjectorMessage(result.error, 'error');
+        }
+    } catch (error) {
+        showProjectorMessage(`Error: ${error.message}`, 'error');
     }
 }
 

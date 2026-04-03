@@ -123,6 +123,7 @@ function connectToWebSocket(ctx) {
       ctx.socket.emit('register_league', { locationId: ctx.config.locationId, leagueId: payload.leagueId });
     }
 
+    // Send to all windows — all screens unlock/lock, but only the league display shows the picker UI
     [ctx.mainWindow, ...ctx.additionalWindows].forEach(window => {
       if (window && !window.isDestroyed()) {
         window.webContents.send('league-mode-changed', payload);

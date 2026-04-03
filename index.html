@@ -136,6 +136,7 @@
         </div>
 
         <button class="league-submit-btn league-hidden" id="league-submit-btn">Submit Scores</button>
+        <button class="league-done-btn league-hidden" id="league-done-btn">Done — Next Player</button>
 
         <!-- Mini Leaderboard -->
         <div class="league-mini-leaderboard">
@@ -149,6 +150,25 @@
     <!-- Score Confirmation Toast -->
     <div id="league-toast" class="league-hidden">
         <div class="league-toast-content" id="league-toast-content">Score saved!</div>
+    </div>
+
+    <!-- League Player Picker (shown during league mode instead of booking) -->
+    <div id="league-player-picker" class="league-hidden">
+        <div class="league-picker-overlay">
+            <div class="league-picker-header">
+                <svg viewBox="0 0 24 24" width="28" height="28" fill="#00A36C"><path d="M14.4,6L14,4H5V21L12,18L19,21V11.35C18.37,11.78 17.7,12 17,12A5,5 0 0,1 12,7C12,6.31 12.18,5.59 12.5,5L14.4,6M17,10A3,3 0 0,0 20,7A3,3 0 0,0 17,4A3,3 0 0,0 14,7A3,3 0 0,0 17,10Z"/></svg>
+                <div class="league-picker-title">League Mode</div>
+                <div class="league-picker-subtitle">Search your name to begin scoring</div>
+            </div>
+            <div id="league-selected-players" class="league-selected-players"></div>
+            <div class="league-picker-search-wrap">
+                <input id="league-player-search" type="text" placeholder="Type your name..." autocomplete="off" />
+            </div>
+            <div id="league-player-list" class="league-player-list"></div>
+            <div id="league-picker-start-wrap" class="league-picker-start-wrap league-hidden">
+                <button id="league-picker-start-btn" class="league-picker-start-btn">Start Scoring</button>
+            </div>
+        </div>
     </div>
 
     <!-- Round Summary Card (shown after all holes) -->

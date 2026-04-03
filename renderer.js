@@ -160,9 +160,10 @@ function checkForActiveBooking(bookings) {
         if (b.bayId !== config.bayId) return false;
         // Only consider confirmed bookings - ignore abandoned, cancelled, etc.
         if (b.status !== 'confirmed') return false;
-        
-        const startTime = parseTime(b.startTime);
-        const endTime = parseTime(b.endTime);
+
+        // Prefer ISO timestamps (handles cross-midnight bookings correctly)
+        const startTime = b.startTimeISO ? new Date(b.startTimeISO) : parseTime(b.startTime);
+        const endTime = b.endTimeISO ? new Date(b.endTimeISO) : parseTime(b.endTime);
 
         return now >= startTime && now < endTime;
     });
@@ -253,13 +254,13 @@ function checkExtensionTrigger(diffMs) {
         if (b.bayId !== config.bayId) return false;
         // Only consider confirmed bookings as blocking
         if (b.status !== 'confirmed') return false;
-        const bStart = parseTime(b.startTime);
+        const bStart = b.startTimeISO ? new Date(b.startTimeISO) : parseTime(b.startTime);
         // Use >= to catch back-to-back bookings (next starts exactly when current ends)
         return bStart >= currentEndTime;
     });
 
     if (nextBooking) {
-        const nextStart = parseTime(nextBooking.startTime);
+        const nextStart = nextBooking.startTimeISO ? new Date(nextBooking.startTimeISO) : parseTime(nextBooking.startTime);
         const gapMinutes = (nextStart - currentEndTime) / (1000 * 60);
         if (gapMinutes < 15) {
             console.log(`Extension skipped: only ${gapMinutes.toFixed(0)} min gap before next booking.`);

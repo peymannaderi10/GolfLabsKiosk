@@ -5,6 +5,7 @@ const axios = require('axios');
 
 const { closeAdditionalWindows, recreateAdditionalWindows } = require('./windows');
 const { onSessionEnd } = require('./app-manager');
+const { queryStatus } = require('./projector');
 
 function createApiClient(ctx) {
   return axios.create({
@@ -20,6 +21,14 @@ function registerIpcHandlers(ctx) {
   ipcMain.handle('get-config', () => {
       const { adminPassword, ...safeConfig } = ctx.config;
       return safeConfig;
+  });
+
+  // Returns true if this window should show league UI (additional display, or main if single-monitor)
+  ipcMain.handle('is-league-display', (event) => {
+      const senderWindow = BrowserWindow.fromWebContents(event.sender);
+      if (!senderWindow) return false;
+      if (ctx.additionalWindows.length === 0) return true; // single monitor — main shows league
+      return ctx.additionalWindows.some(w => w && !w.isDestroyed() && w.id === senderWindow.id);
   });
 
   // IPC handler for renderer to get the initial list of bookings
@@ -291,6 +300,14 @@ function registerIpcHandlers(ctx) {
       }
   });
 
+  ipcMain.handle('admin-test-projector', () => {
+      const sent = queryStatus();
+      if (sent) {
+          return { success: true, message: 'Status query sent — check logs for projector response' };
+      }
+      return { success: false, error: 'Serial port not open — check COM port and restart' };
+  });
+
   ipcMain.handle('admin-close', () => {
       if (ctx.mainWindow && !ctx.mainWindow.isDestroyed()) {
           console.log('Exiting admin mode, reloading kiosk screen.');
@@ -475,8 +492,34 @@ function registerIpcHandlers(ctx) {
 
   // --- League Mode IPC Handlers ---
 
-  ipcMain.handle('get-league-settings', () => {
-      return ctx.config ? ctx.config.leagueSettings : { enabled: false, leagueId: '' };
+  ipcMain.handle('get-league-settings', async () => {
+      // Check live bay state from API first (handles restart after remote activation)
+      if (ctx.config && ctx.config.bayId && ctx.config.apiBaseUrl) {
+          try {
+              const url = `${ctx.config.apiBaseUrl}/bays/${ctx.config.bayId}/heartbeat`;
+              const response = await api.post(url, {});
+              const bay = response.data;
+              if (bay && bay.league_mode_active && bay.league_mode_league_id) {
+                  // Bay has league mode active in DB — fetch league times
+                  if (!ctx.config.leagueSettings) ctx.config.leagueSettings = {};
+                  ctx.config.leagueSettings.enabled = true;
+                  ctx.config.leagueSettings.leagueId = bay.league_mode_league_id;
+
+                  let startTime = null;
+                  let endTime = null;
+                  try {
+                      const leagueRes = await api.get(`${ctx.config.apiBaseUrl}/leagues/${bay.league_mode_league_id}`);
+                      startTime = leagueRes.data?.start_time || null;
+                      endTime = leagueRes.data?.end_time || null;
+                  } catch (e) { /* fallback to no times */ }
+
+                  return { enabled: true, leagueId: bay.league_mode_league_id, startTime, endTime };
+              }
+          } catch (err) {
+              console.warn('Failed to check bay league state on startup:', err.message);
+          }
+      }
+      return ctx.config ? (ctx.config.leagueSettings || { enabled: false, leagueId: '' }) : { enabled: false, leagueId: '' };
   });
 
   ipcMain.handle('get-league-state', async (event, userId) => {
@@ -487,7 +530,7 @@ function registerIpcHandlers(ctx) {
       if (!leagueId || !userId) return null;
 
       try {
-          const url = `${ctx.config.apiBaseUrl}/leagues/${leagueId}/kiosk-state?userId=${userId}`;
+          const url = `${ctx.config.apiBaseUrl}/leagues/${encodeURIComponent(leagueId)}/kiosk-state?userId=${encodeURIComponent(userId)}`;
           console.log(`Fetching league state for userId ${userId} from: ${url}`);
           const response = await api.get(url);
           return response.data;
@@ -537,6 +580,31 @@ function registerIpcHandlers(ctx) {
               throw new Error(error.response.data.error || error.message);
           }
           throw error;
+      }
+  });
+
+  ipcMain.handle('get-league-players', async (event, leagueId, query) => {
+      if (!ctx.config || !leagueId) return [];
+      try {
+          const q = query ? encodeURIComponent(query) : '';
+          const url = `${ctx.config.apiBaseUrl}/leagues/${leagueId}/players/search${q ? `?q=${q}` : ''}`;
+          const response = await api.get(url);
+          return response.data;
+      } catch (error) {
+          console.error('Error fetching league players:', error.message);
+          return [];
+      }
+  });
+
+  ipcMain.handle('get-league-state-by-player-id', async (event, leagueId, playerId) => {
+      if (!ctx.config || !leagueId || !playerId) return null;
+      try {
+          const url = `${ctx.config.apiBaseUrl}/leagues/${encodeURIComponent(leagueId)}/kiosk-state?playerId=${encodeURIComponent(playerId)}`;
+          const response = await api.get(url);
+          return response.data;
+      } catch (error) {
+          console.error('Error fetching league state by player ID:', error.message);
+          return null;
       }
   });
 }

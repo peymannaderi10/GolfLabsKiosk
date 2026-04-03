@@ -485,3 +485,297 @@
 .league-summary-close:hover {
     background: #008855;
 }
+
+/* =====================================================
+   LEAGUE PLAYER PICKER
+   ===================================================== */
+
+#league-player-picker {
+    position: fixed;
+    inset: 0;
+    z-index: 1002;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0, 0, 0, 0.9);
+    padding: 16px;
+}
+
+.league-picker-overlay {
+    width: 100%;
+    max-width: 520px;
+    max-height: 90vh;
+    background: rgba(18, 18, 22, 0.99);
+    border-radius: 20px;
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    box-shadow: 0 24px 80px rgba(0, 0, 0, 0.6);
+}
+
+/* Header */
+.league-picker-header {
+    text-align: center;
+    padding: 32px 24px 20px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.league-picker-title {
+    font-size: 24px;
+    font-weight: 700;
+    color: #fff;
+    margin-top: 10px;
+    letter-spacing: -0.3px;
+}
+
+.league-picker-subtitle {
+    font-size: 14px;
+    color: rgba(255, 255, 255, 0.45);
+    margin-top: 6px;
+}
+
+/* Selected Players Chips */
+.league-selected-players {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    padding: 16px 20px 0;
+    min-height: 0;
+}
+
+.league-selected-players:empty {
+    display: none;
+}
+
+.league-selected-chip {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px 8px 16px;
+    background: rgba(0, 163, 108, 0.12);
+    border: 1px solid rgba(0, 163, 108, 0.25);
+    border-radius: 24px;
+    color: #00D68F;
+    font-size: 14px;
+    font-weight: 600;
+}
+
+.league-selected-chip-remove {
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.08);
+    border: none;
+    color: rgba(255, 255, 255, 0.4);
+    font-size: 14px;
+    line-height: 22px;
+    text-align: center;
+    cursor: pointer;
+    padding: 0;
+    transition: background 0.15s, color 0.15s;
+}
+
+.league-selected-chip-remove:hover {
+    background: rgba(255, 80, 80, 0.25);
+    color: #ff6b6b;
+}
+
+/* Search */
+.league-picker-search-wrap {
+    padding: 16px 20px;
+}
+
+#league-player-search {
+    width: 100%;
+    height: 52px;
+    padding: 0 20px;
+    border-radius: 12px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    background: rgba(255, 255, 255, 0.05);
+    color: #fff;
+    font-size: 16px;
+    outline: none;
+    box-sizing: border-box;
+    transition: border-color 0.2s, background 0.2s;
+}
+
+#league-player-search::placeholder {
+    color: rgba(255, 255, 255, 0.25);
+}
+
+#league-player-search:focus {
+    border-color: #00A36C;
+    background: rgba(0, 163, 108, 0.05);
+}
+
+/* Player List */
+.league-player-list {
+    flex: 1;
+    overflow-y: auto;
+    padding: 0 12px 12px;
+}
+
+.league-player-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 16px;
+    margin: 4px 0;
+    border-radius: 12px;
+    cursor: pointer;
+    transition: background 0.15s;
+    min-height: 56px;
+}
+
+.league-player-item:hover {
+    background: rgba(0, 163, 108, 0.1);
+}
+
+.league-player-item:active {
+    background: rgba(0, 163, 108, 0.18);
+    transform: scale(0.99);
+}
+
+.league-player-name {
+    font-size: 17px;
+    font-weight: 600;
+    color: #fff;
+}
+
+.league-player-handicap {
+    font-size: 13px;
+    color: rgba(255, 255, 255, 0.35);
+    font-weight: 500;
+    white-space: nowrap;
+}
+
+.league-player-list-empty {
+    text-align: center;
+    padding: 48px 20px;
+    color: rgba(255, 255, 255, 0.25);
+    font-size: 15px;
+}
+
+/* Start Button */
+.league-picker-start-wrap {
+    padding: 8px 20px 20px;
+    border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.league-picker-start-btn {
+    width: 100%;
+    padding: 16px;
+    background: linear-gradient(135deg, #00A36C, #008855);
+    border: none;
+    border-radius: 12px;
+    color: #fff;
+    font-size: 17px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: opacity 0.15s, transform 0.15s;
+    letter-spacing: -0.2px;
+}
+
+.league-picker-start-btn:hover {
+    opacity: 0.92;
+}
+
+.league-picker-start-btn:active {
+    transform: scale(0.98);
+}
+
+/* Responsive — small kiosk screens / portrait */
+@media (max-height: 700px) {
+    .league-picker-overlay {
+        max-height: 95vh;
+        border-radius: 16px;
+    }
+    .league-picker-header {
+        padding: 20px 20px 14px;
+    }
+    .league-picker-title {
+        font-size: 20px;
+    }
+    .league-picker-search-wrap {
+        padding: 12px 16px;
+    }
+    #league-player-search {
+        height: 44px;
+        font-size: 15px;
+    }
+    .league-player-item {
+        padding: 12px 14px;
+        min-height: 48px;
+    }
+    .league-player-name {
+        font-size: 15px;
+    }
+    .league-picker-start-btn {
+        padding: 13px;
+        font-size: 15px;
+    }
+}
+
+/* Responsive — wide screens / landscape kiosk */
+@media (min-width: 1200px) {
+    .league-picker-overlay {
+        max-width: 560px;
+    }
+    .league-picker-header {
+        padding: 36px 28px 24px;
+    }
+    .league-picker-title {
+        font-size: 26px;
+    }
+    #league-player-search {
+        height: 56px;
+        font-size: 17px;
+        padding: 0 24px;
+    }
+    .league-player-item {
+        padding: 18px 20px;
+        min-height: 60px;
+    }
+    .league-player-name {
+        font-size: 18px;
+    }
+    .league-picker-start-btn {
+        padding: 18px;
+        font-size: 18px;
+    }
+}
+
+/* Full-screen kiosk — no border radius */
+@media (max-width: 480px) {
+    #league-player-picker {
+        padding: 0;
+    }
+    .league-picker-overlay {
+        width: 100%;
+        max-width: 100%;
+        max-height: 100vh;
+        border-radius: 0;
+        border: none;
+    }
+}
+
+/* Done Button in Score Panel */
+.league-done-btn {
+    width: 100%;
+    padding: 12px;
+    margin-top: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 8px;
+    background: transparent;
+    color: rgba(255, 255, 255, 0.7);
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.2s, color 0.2s;
+}
+
+.league-done-btn:hover {
+    background: rgba(255, 255, 255, 0.08);
+    color: #fff;
+}

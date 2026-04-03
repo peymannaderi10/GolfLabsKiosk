@@ -123,6 +123,11 @@ function sendCommand(command, label) {
   return true;
 }
 
+function queryStatus() {
+  const cmd = '\r*pow=?#\r';
+  return sendCommand(cmd, 'QUERY_STATUS');
+}
+
 function powerOn() {
   const timeSinceOff = Date.now() - lastPowerOffTime;
   if (timeSinceOff < COOLDOWN_MS) {
@@ -175,21 +180,22 @@ function scheduleFromBookings(ctx) {
   const keepAliveGapMinutes = settings.keepAliveGapMinutes || 60;
 
   // Filter to confirmed bookings for this bay
+  // Prefer ISO timestamps for cross-midnight accuracy
   const bayBookings = (ctx.bookings || [])
     .filter(b => b.bayId === ctx.config.bayId && b.status === 'confirmed')
     .map(b => ({
       ...b,
-      start: parseTimeToday(b.startTime, timezone),
-      end: parseTimeToday(b.endTime, timezone),
+      start: b.startTimeISO ? new Date(b.startTimeISO) : parseTimeToday(b.startTime, timezone),
+      end: b.endTimeISO ? new Date(b.endTimeISO) : parseTimeToday(b.endTime, timezone),
     }))
     .sort((a, b) => a.start - b.start);
 
+  console.log(`[Projector] Evaluating ${bayBookings.length} confirmed booking(s), projector state: ${isProjectorOn}`);
+
   if (bayBookings.length === 0) {
-    // No bookings — if projector is on, turn it off
-    if (isProjectorOn !== false) {
-      console.log('[Projector] No bookings — powering off');
-      powerOff();
-    }
+    // No bookings — send power off (always send to be safe)
+    console.log('[Projector] No bookings — powering off');
+    powerOff();
     return;
   }
 
@@ -236,24 +242,19 @@ function scheduleFromBookings(ctx) {
       }, scheduleIn);
       console.log(`[Projector] Scheduled pre-start in ${Math.ceil(scheduleIn / 60000)}m`);
 
-      // If projector is on and no active booking, check if we should turn off
-      if (isProjectorOn !== false) {
-        // Check if there's a booking within the keepAlive gap
-        const keepAliveMs = keepAliveGapMinutes * 60 * 1000;
-        if (msUntilStart > keepAliveMs) {
-          console.log(`[Projector] No booking within ${keepAliveGapMinutes}m — powering off`);
-          powerOff();
-        } else {
-          console.log(`[Projector] Next booking within ${keepAliveGapMinutes}m — keeping projector on`);
-        }
+      // No active booking — check if we should turn off based on gap
+      const keepAliveMs = keepAliveGapMinutes * 60 * 1000;
+      if (msUntilStart > keepAliveMs) {
+        console.log(`[Projector] No booking within ${keepAliveGapMinutes}m — powering off`);
+        powerOff();
+      } else if (isProjectorOn !== false) {
+        console.log(`[Projector] Next booking within ${keepAliveGapMinutes}m — keeping projector on`);
       }
     }
   } else {
-    // All bookings are in the past — turn off
-    if (isProjectorOn !== false) {
-      console.log('[Projector] All bookings ended — powering off');
-      powerOff();
-    }
+    // All bookings are in the past — send power off (always send to be safe)
+    console.log('[Projector] All bookings ended — powering off');
+    powerOff();
   }
 }
 
@@ -335,4 +336,5 @@ module.exports = {
   scheduleFromBookings,
   powerOn,
   powerOff,
+  queryStatus,
 };
