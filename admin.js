@@ -710,9 +710,10 @@ async function clearCache() {
         messageEl.className = 'success-message';
         messageEl.textContent = `✅ ${result.message}`;
         
-        // Refresh booking info if we're on that page
+        // Refresh booking info immediately after clearing cache
         cachedBookings = [];
-        
+        loadBookingInfo();
+
         setTimeout(() => { messageEl.textContent = ''; messageEl.className = ''; }, 5000);
     } catch (error) {
         console.error('Clear cache failed:', error);

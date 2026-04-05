@@ -22,6 +22,7 @@ let extensionMemberInfo = null; // Cached member info from API
 let selectedExtension = null; // Currently selected option { minutes, priceCents, priceFormatted }
 let useFreeMinutes = false; // Toggle state for member free minutes
 let isProcessingRemoteState = false; // Prevent broadcast loops
+let extensionResetTimer = null; // Tracks the post-success/error setTimeout so it can be cancelled
 
 // Broadcast extension state to all screens
 function broadcastExtensionState(state, extra = {}) {
@@ -290,8 +291,23 @@ function checkExtensionTrigger(diffMs) {
 
 async function fetchExtensionOptions() {
     try {
-        const result = await window.electronAPI.getExtensionOptions(currentBooking.id);
+        const bookingIdAtFetch = currentBooking.id;
+        const result = await window.electronAPI.getExtensionOptions(bookingIdAtFetch);
         console.log('Extension options received:', result);
+
+        // FIX H1: Guard against the screen having locked while the await was in flight.
+        // setLockedState(true) calls resetExtensionState() which sets extensionState = 'idle'.
+        if (extensionState !== 'loading' || isCurrentlyLocked !== false) {
+            extensionState = 'idle';
+            return;
+        }
+
+        // FIX H2: Guard against currentBooking having changed to a different booking
+        // during the await (e.g. via a bookings_updated WebSocket event).
+        if (!currentBooking || currentBooking.id !== bookingIdAtFetch) {
+            extensionState = 'idle';
+            return;
+        }
 
         if (!result.options || result.options.length === 0) {
             console.log('No extension options available.');
@@ -438,18 +454,17 @@ async function confirmExtension() {
         // Broadcast success state
         broadcastExtensionState('success', { statusText: successMsg });
 
-        // Brief success message, then hide
-        setTimeout(() => {
-            statusEl.classList.add('extension-hidden');
+        // Keep state as 'success' during the display period so checkExtensionTrigger
+        // doesn't re-fire before the WebSocket endTime update arrives
+        extensionState = 'success';
+
+        // Brief success message, then reset. Store timer so resetExtensionState()
+        // can cancel it if the WebSocket booking update arrives first.
+        extensionResetTimer = setTimeout(() => {
+            extensionResetTimer = null;
             resetExtensionState();
-            // Make window click-through again since the extension UI is gone
-            window.electronAPI.setIgnoreMouseEvents(true);
-            // Broadcast reset to idle
             broadcastExtensionState('idle');
         }, 2000);
-
-        // The WebSocket booking_update event will push the new endTime
-        // and checkForActiveBooking will update currentBooking automatically.
 
     } catch (error) {
         console.error('Extension failed:', error);
@@ -462,12 +477,11 @@ async function confirmExtension() {
 
         logAccessEvent('extension_payment_failed', false, currentBooking);
 
-        setTimeout(() => {
+        extensionResetTimer = setTimeout(() => {
+            extensionResetTimer = null;
             statusEl.classList.add('extension-hidden');
             extensionState = 'declined';
-            // Restore click-through
             window.electronAPI.setIgnoreMouseEvents(true);
-            // Broadcast declined state
             broadcastExtensionState('declined');
         }, 4000);
     }
@@ -504,6 +518,12 @@ function resetExtensionState() {
     extensionMemberInfo = null;
     useFreeMinutes = false;
 
+    // Cancel any pending post-success/error timer so it doesn't tear down a re-triggered flow
+    if (extensionResetTimer) {
+        clearTimeout(extensionResetTimer);
+        extensionResetTimer = null;
+    }
+
     // Hide all extension UI
     const banner = document.getElementById('extension-banner');
     const confirm = document.getElementById('extension-confirm');
@@ -511,6 +531,10 @@ function resetExtensionState() {
     if (banner) banner.classList.add('extension-hidden');
     if (confirm) confirm.classList.add('extension-hidden');
     if (status) status.classList.add('extension-hidden');
+
+    // Restore click-through — critical when called via WebSocket booking update
+    // while the banner was visible (showExtensionBanner sets setIgnoreMouseEvents(false))
+    window.electronAPI.setIgnoreMouseEvents(true);
 }
 
 // --- Main Application Logic ---
@@ -600,10 +624,12 @@ function handleRemoteExtensionState(stateData) {
                 }
 
                 document.getElementById('extension-confirm').classList.remove('extension-hidden');
-                document.getElementById('extension-confirm-btn').onclick = confirmExtension;
-                document.getElementById('extension-cancel-btn').onclick = dismissExtension;
+                // Secondary screens are display-only — do NOT wire confirm/dismiss handlers
+                // to prevent duplicate API calls (double-charging) from a second touch target
+                document.getElementById('extension-confirm-btn').onclick = null;
+                document.getElementById('extension-cancel-btn').onclick = null;
             }
-            window.electronAPI.setIgnoreMouseEvents(false);
+            // Secondary screen stays click-through — only primary handles interaction
             break;
         case 'processing':
             document.getElementById('extension-confirm').classList.add('extension-hidden');
@@ -644,6 +670,24 @@ function startHeartbeat() {
     console.log(`Heartbeat service started. Checking in every ${HEARTBEAT_INTERVAL_MS / 1000}s.`);
 }
 
+// FIX H11: Clear all active timers when the page is unloaded during navigation
+// (e.g. main window navigating to admin.html and back). Without this, each
+// round-trip leaks one heartbeatInterval that fires against a dead renderer context.
+window.addEventListener('pagehide', () => {
+    if (heartbeatInterval) {
+        clearInterval(heartbeatInterval);
+        heartbeatInterval = null;
+    }
+    if (countdownInterval) {
+        clearInterval(countdownInterval);
+        countdownInterval = null;
+    }
+    if (extensionResetTimer) {
+        clearTimeout(extensionResetTimer);
+        extensionResetTimer = null;
+    }
+});
+
 function sendHeartbeat() {
     if (!config || !config.spaceId) {
         console.error("Cannot send heartbeat: config or spaceId is missing.");
@@ -666,6 +710,16 @@ initialize();
 window.electronAPI.onBookingsUpdated((updatedBookings) => {
     console.log('Received booking updates from main process via WebSocket.');
     localBookings = updatedBookings; // Update the entire local cache
+
+    // If extension was declined due to a gap-check (blocking booking too close),
+    // re-evaluate — the blocking booking may have been cancelled or rescheduled.
+    // User-initiated dismissals also set 'declined', but re-evaluating is harmless:
+    // checkExtensionTrigger will just re-check the gap and decline again if still blocked,
+    // or offer the extension if the gap opened up. This prevents permanently lost opportunities.
+    if (extensionState === 'declined') {
+        extensionState = 'idle';
+    }
+
     checkForActiveBooking(localBookings);
 });
 

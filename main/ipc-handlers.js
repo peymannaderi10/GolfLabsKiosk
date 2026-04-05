@@ -1,11 +1,28 @@
 const { ipcMain, BrowserWindow, screen } = require('electron');
 const path = require('path');
 const fs = require('fs');
+const crypto = require('crypto');
 const axios = require('axios');
 
 const { closeAdditionalWindows, recreateAdditionalWindows } = require('./windows');
 const { onSessionEnd } = require('./app-manager');
 const { queryStatus } = require('./projector');
+
+function hashPassword(password) {
+  const salt = crypto.randomBytes(16).toString('hex');
+  const hash = crypto.scryptSync(password, salt, 64).toString('hex');
+  return `${salt}:${hash}`;
+}
+
+function verifyPassword(password, stored) {
+  // Support legacy plaintext passwords (no colon = not hashed)
+  if (!stored.includes(':')) {
+    return password === stored;
+  }
+  const [salt, hash] = stored.split(':');
+  const testHash = crypto.scryptSync(password, salt, 64).toString('hex');
+  return hash === testHash;
+}
 
 function createApiClient(ctx) {
   return axios.create({
@@ -120,7 +137,7 @@ function registerIpcHandlers(ctx) {
               return { success: false, error: 'Admin password not configured' };
           }
           
-          const isValid = password === ctx.config.adminPassword;
+          const isValid = verifyPassword(password, ctx.config.adminPassword);
           return { 
               success: isValid, 
               error: isValid ? null : 'Invalid password'
@@ -180,6 +197,11 @@ function registerIpcHandlers(ctx) {
   ipcMain.handle('admin-manual-unlock', async (event, durationMinutes) => {
       console.log(`Admin timed screen unlock requested for ${durationMinutes} minutes`);
 
+      const duration = Number(durationMinutes);
+      if (!Number.isFinite(duration) || duration <= 0 || duration > 1440) {
+          return { success: false, error: 'Invalid duration. Must be between 1 and 1440 minutes.' };
+      }
+
       try {
           if (ctx.manualUnlockTimer) {
               clearTimeout(ctx.manualUnlockTimer);
@@ -187,10 +209,10 @@ function registerIpcHandlers(ctx) {
           }
 
           ctx.isManuallyUnlocked = true;
-          
-          const durationMs = durationMinutes * 60 * 1000;
+
+          const durationMs = duration * 60 * 1000;
           ctx.manualUnlockEndTime = new Date(Date.now() + durationMs);
-          
+
           [ctx.mainWindow, ...ctx.additionalWindows].forEach(window => {
               if (window && !window.isDestroyed()) {
                   window.webContents.send('manual-unlock-state-changed', ctx.isManuallyUnlocked, ctx.manualUnlockEndTime.toISOString());
@@ -201,8 +223,8 @@ function registerIpcHandlers(ctx) {
               ctx.isManuallyUnlocked = false;
               ctx.manualUnlockEndTime = null;
               ctx.manualUnlockTimer = null;
-              console.log(`Timed screen unlock expired after ${durationMinutes} minutes`);
-              
+              console.log(`Timed screen unlock expired after ${duration} minutes`);
+
               [ctx.mainWindow, ...ctx.additionalWindows].forEach(window => {
                   if (window && !window.isDestroyed()) {
                       window.webContents.send('manual-unlock-state-changed', ctx.isManuallyUnlocked, null);
@@ -210,8 +232,8 @@ function registerIpcHandlers(ctx) {
               });
           }, durationMs);
 
-          console.log(`Screen unlocked via admin panel for ${durationMinutes} minutes`);
-          return { success: true, message: `Screen unlocked for ${durationMinutes} minutes` };
+          console.log(`Screen unlocked via admin panel for ${duration} minutes`);
+          return { success: true, message: `Screen unlocked for ${duration} minutes` };
       } catch (error) {
           console.error('Admin timed screen unlock failed:', error);
           return { success: false, error: error.message };
@@ -224,7 +246,7 @@ function registerIpcHandlers(ctx) {
               return { success: false, error: 'Admin password not configured' };
           }
 
-          if (currentPassword !== ctx.config.adminPassword) {
+          if (!verifyPassword(currentPassword, ctx.config.adminPassword)) {
               return { success: false, error: 'Current password is incorrect' };
           }
 
@@ -235,14 +257,15 @@ function registerIpcHandlers(ctx) {
           const currentConfigData = fs.readFileSync(CONFIG_PATH, 'utf8');
           const currentConfigFromFile = JSON.parse(currentConfigData);
 
-          currentConfigFromFile.adminPassword = newPassword;
+          const hashedNewPassword = hashPassword(newPassword);
+          currentConfigFromFile.adminPassword = hashedNewPassword;
 
           const backupPath = CONFIG_PATH + '.backup';
           fs.copyFileSync(CONFIG_PATH, backupPath);
 
           fs.writeFileSync(CONFIG_PATH, JSON.stringify(currentConfigFromFile, null, 4));
 
-          ctx.config.adminPassword = newPassword;
+          ctx.config.adminPassword = hashedNewPassword;
 
           console.log('Admin password changed successfully');
           return { success: true, message: 'Password changed successfully' };

@@ -12,6 +12,9 @@
  *    the scheduled time, it waits and checks every minute until idle.
  */
 
+const fs = require('fs');
+const path = require('path');
+
 const MEMORY_CHECK_INTERVAL_MS = 5 * 60 * 1000;  // 5 minutes
 const MEMORY_WARNING_MB = 512;
 const MEMORY_CRITICAL_MB = 1024;
@@ -20,6 +23,7 @@ const DAILY_CHECK_INTERVAL_MS = 60 * 1000; // Check every minute for restart win
 let memoryCheckInterval = null;
 let dailyRestartInterval = null;
 let restartPending = false;
+let memoryWarningLogged = false;
 
 /**
  * Check if there's an active booking right now.
@@ -62,11 +66,33 @@ function getTotalMemoryMB() {
 }
 
 /**
+ * Return the path to the last-restart date file in userData.
+ */
+function getLastRestartFilePath() {
+  const { app } = require('electron');
+  return path.join(app.getPath('userData'), 'last-restart.txt');
+}
+
+/**
+ * Return today's date as a YYYY-MM-DD string.
+ */
+function todayDateString() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+/**
  * Restart the Electron app cleanly.
  */
 function performRestart(ctx, reason) {
   const { app } = require('electron');
   console.log(`[Health] Restarting app: ${reason}`);
+
+  // Persist today's date so the relaunched process skips the restart check
+  try {
+    fs.writeFileSync(getLastRestartFilePath(), todayDateString(), 'utf8');
+  } catch (err) {
+    console.error(`[Health] Failed to write last-restart file: ${err.message}`);
+  }
 
   // Destroy all windows
   if (ctx.mainWindow && !ctx.mainWindow.isDestroyed()) {
@@ -104,8 +130,15 @@ function startMemoryMonitor(ctx) {
       }
       console.warn(`[Health] Active booking in progress — deferring restart`);
     } else if (totalMB >= MEMORY_WARNING_MB) {
-      console.warn(`[Health] High memory: ${totalMB}MB total (main: ${mainRssMB}MB)`);
+      if (!memoryWarningLogged) {
+        console.warn(`[Health] High memory: ${totalMB}MB total (main: ${mainRssMB}MB)`);
+        memoryWarningLogged = true;
+      }
     } else {
+      if (memoryWarningLogged) {
+        console.log(`[Health] Memory recovered: ${totalMB}MB`);
+        memoryWarningLogged = false;
+      }
       console.log(`[Health] Memory: ${totalMB}MB total (main: ${mainRssMB}MB)`);
     }
   }, MEMORY_CHECK_INTERVAL_MS);
@@ -123,10 +156,32 @@ function startDailyRestart(ctx) {
   const restartHour = (ctx.config.healthSettings && ctx.config.healthSettings.dailyRestartHour) || 4;
   console.log(`[Health] Daily restart scheduled for ${restartHour}:00 (when idle)`);
 
+  // Guard against restart loop: if we already restarted today, skip until tomorrow.
+  let lastRestartDate = null;
+  try {
+    lastRestartDate = fs.readFileSync(getLastRestartFilePath(), 'utf8').trim();
+  } catch (_) {
+    // File absent on first run — that is expected.
+  }
+  if (lastRestartDate === todayDateString()) {
+    console.log(`[Health] Already restarted today (${lastRestartDate}) — daily restart skipped until tomorrow`);
+  }
+
   dailyRestartInterval = setInterval(() => {
     const now = new Date();
     const hour = now.getHours();
     const minute = now.getMinutes();
+
+    // If the persisted date still matches today, do not restart again.
+    let persistedDate = null;
+    try {
+      persistedDate = fs.readFileSync(getLastRestartFilePath(), 'utf8').trim();
+    } catch (_) {
+      // No file — not yet restarted today.
+    }
+    if (persistedDate === todayDateString()) {
+      return;
+    }
 
     // Trigger during the restart hour (e.g., 4:00 AM window)
     if (hour === restartHour) {

@@ -66,7 +66,12 @@ function connectToWebSocket(ctx) {
   ctx.socket.on('bookings_updated', (payload) => {
     console.log('Received full bookings refresh:', payload);
     if (payload.spaceId === ctx.config.spaceId) {
-      ctx.bookings = payload.bookings;
+      const bookings = payload.bookings;
+      if (!Array.isArray(bookings)) {
+        console.warn('[WebSocket] Received invalid bookings_updated payload — skipping');
+        return;
+      }
+      ctx.bookings = bookings;
       [ctx.mainWindow, ...ctx.additionalWindows].forEach(window => {
         if (window && !window.isDestroyed()) {
           window.webContents.send('bookings-updated', ctx.bookings);
@@ -79,7 +84,14 @@ function connectToWebSocket(ctx) {
   
   ctx.socket.on('booking_update', (payload) => {
     console.log('Received single booking update:', payload);
+    if (!payload || !payload.booking) {
+      console.warn('[WebSocket] Received invalid booking_update payload — skipping');
+      return;
+    }
     if (payload.spaceId === ctx.config.spaceId) {
+      if (!Array.isArray(ctx.bookings)) {
+        ctx.bookings = [];
+      }
       const index = ctx.bookings.findIndex(b => b.id === payload.booking.id);
 
       if (payload.action === 'add') {

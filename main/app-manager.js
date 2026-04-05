@@ -15,6 +15,8 @@ const fs = require('fs');
 
 const UNEEKOR_PATH = 'C:\\Uneekor';
 
+let appManagerInitialized = false;
+
 const LAUNCHER_EXES = [
   'uneekorlauncher.exe',
   'uneekorlaunchersettings.exe',
@@ -219,14 +221,12 @@ function initAppManager(ctx) {
     return;
   }
 
-  const { onSpaceActive, onSpaceIdle, lifecycleCallbacks } = require('./projector');
-
-  // Guard against double-init: only register if no app manager hooks are present yet.
-  // lifecycleCallbacks arrays grow forever if initAppManager is called multiple times.
-  if (lifecycleCallbacks && lifecycleCallbacks.onSpaceActive.length > 0) {
-    console.log('[AppManager] Lifecycle hooks already registered — skipping duplicate init');
+  if (appManagerInitialized) {
+    console.log('[AppManager] Already initialized — skipping duplicate init');
     return;
   }
+
+  const { onSpaceActive, onSpaceIdle } = require('./projector');
 
   // When space becomes active (pre-start or booking start) — launch Uneekor
   onSpaceActive(() => {
@@ -240,6 +240,7 @@ function initAppManager(ctx) {
     killAllUneekor();
   });
 
+  appManagerInitialized = true;
   console.log('[AppManager] Initialized — Uneekor follows space booking schedule');
 }
 
