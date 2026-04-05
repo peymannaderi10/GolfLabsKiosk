@@ -55,7 +55,7 @@ function logAccessEvent(action, success, booking = null) {
     const logData = {
         action: action,
         success: success,
-        bay_id: config.bayId,
+        space_id: config.spaceId,
         location_id: config.locationId,
         booking_id: booking ? booking.id : undefined,
         user_id: booking ? booking.userId : undefined,
@@ -200,7 +200,7 @@ function checkForActiveBooking(bookings) {
 
     const now = new Date();
     const activeBooking = bookings.find(b => {
-        if (b.bayId !== config.bayId) return false;
+        if (b.spaceId !== config.spaceId) return false;
         // Only consider confirmed bookings - ignore abandoned, cancelled, etc.
         if (b.status !== 'confirmed') return false;
 
@@ -264,8 +264,8 @@ function updateCountdown() {
 
     const now = new Date();
     // Use ISO timestamp if available (for manual override), otherwise parse the formatted time
-    const endTime = currentBooking.endTimeISO 
-        ? new Date(currentBooking.endTimeISO) 
+    const endTime = currentBooking.endTimeISO
+        ? new Date(currentBooking.endTimeISO)
         : parseTime(currentBooking.endTime);
     const diff = endTime - now;
 
@@ -312,8 +312,19 @@ function checkExtensionTrigger(diffMs) {
     if (!currentBooking || currentBooking.id === 'manual-override' || currentBooking.id === 'league-mode') return;
     if (extensionState !== 'idle') return;
 
+    // Use the original (non-grace-adjusted) end time for extension logic.
+    // The grace period extends the kiosk unlock window, not the bookable time,
+    // so extensions should only be offered before the real booking ends.
+    const originalEnd = currentBooking.endTimeOriginalISO || currentBooking.endTimeISO;
+    const originalEndTime = originalEnd ? new Date(originalEnd) : parseTime(currentBooking.endTime);
+    const now = new Date();
+    const realDiff = originalEndTime - now;
+
+    // If the real booking has already ended (we're in grace-after), skip extension
+    if (realDiff <= 0) return;
+
     const triggerMs = settings.triggerMinutes * 60 * 1000;
-    if (diffMs > triggerMs) return;
+    if (realDiff > triggerMs) return;
 
     // Quick local check: is there enough gap for at least 15 min?
     const currentEndTime = currentBooking.endTimeISO
@@ -322,7 +333,7 @@ function checkExtensionTrigger(diffMs) {
 
     const nextBooking = localBookings.find(b => {
         if (b.id === currentBooking.id) return false;
-        if (b.bayId !== config.bayId) return false;
+        if (b.spaceId !== config.spaceId) return false;
         // Only consider confirmed bookings as blocking
         if (b.status !== 'confirmed') return false;
         const bStart = b.startTimeISO ? new Date(b.startTimeISO) : parseTime(b.startTime);
@@ -700,12 +711,12 @@ function startHeartbeat() {
 }
 
 function sendHeartbeat() {
-    if (!config || !config.bayId) {
-        console.error("Cannot send heartbeat: config or bayId is missing.");
+    if (!config || !config.spaceId) {
+        console.error("Cannot send heartbeat: config or spaceId is missing.");
         return;
     }
     console.log("Sending heartbeat...");
-    window.electronAPI.sendHeartbeat(config.bayId)
+    window.electronAPI.sendHeartbeat(config.spaceId)
         .then(response => {
             console.log("Heartbeat successful:", response);
         })

@@ -6,7 +6,7 @@
  * - Powers OFF after a booking ends (if no booking within the keepAliveGap)
  * - Gracefully skips if COM port is unavailable
  *
- * Also drives bay lifecycle callbacks (onBayActive / onBayIdle) so other
+ * Also drives space lifecycle callbacks (onSpaceActive / onSpaceIdle) so other
  * systems (e.g., App Manager) can follow the same schedule.
  */
 
@@ -28,37 +28,38 @@ const COOLDOWN_MS = 100 * 1000;
 
 let port = null;
 let isProjectorOn = null; // null = unknown, true = on, false = off
-let isBayActive = false; // tracks whether the bay is in "active" state
+let isSpaceActive = false; // tracks whether the space is in "active" state
 let lastPowerOffTime = 0;
 let preStartTimer = null;
 let postEndTimer = null;
+let cooldownTimer = null;
 
 // Lifecycle callbacks — other modules register to follow the same schedule
 const lifecycleCallbacks = {
-  onBayActive: [],  // called when bay becomes active (pre-start or booking start)
-  onBayIdle: [],    // called when bay becomes idle (no bookings within keepAlive gap)
+  onSpaceActive: [],  // called when space becomes active (pre-start or booking start)
+  onSpaceIdle: [],    // called when space becomes idle (no bookings within keepAlive gap)
 };
 
-function onBayActive(fn) {
-  lifecycleCallbacks.onBayActive.push(fn);
+function onSpaceActive(fn) {
+  lifecycleCallbacks.onSpaceActive.push(fn);
 }
 
-function onBayIdle(fn) {
-  lifecycleCallbacks.onBayIdle.push(fn);
+function onSpaceIdle(fn) {
+  lifecycleCallbacks.onSpaceIdle.push(fn);
 }
 
-function emitBayActive(ctx) {
-  if (isBayActive) return; // already active
-  isBayActive = true;
-  console.log('[BayLifecycle] Bay becoming ACTIVE');
-  lifecycleCallbacks.onBayActive.forEach(fn => fn(ctx));
+function emitSpaceActive(ctx) {
+  if (isSpaceActive) return; // already active
+  isSpaceActive = true;
+  console.log('[SpaceLifecycle] Space becoming ACTIVE');
+  lifecycleCallbacks.onSpaceActive.forEach(fn => fn(ctx));
 }
 
-function emitBayIdle(ctx) {
-  if (!isBayActive) return; // already idle
-  isBayActive = false;
-  console.log('[BayLifecycle] Bay becoming IDLE');
-  lifecycleCallbacks.onBayIdle.forEach(fn => fn(ctx));
+function emitSpaceIdle(ctx) {
+  if (!isSpaceActive) return; // already idle
+  isSpaceActive = false;
+  console.log('[SpaceLifecycle] Space becoming IDLE');
+  lifecycleCallbacks.onSpaceIdle.forEach(fn => fn(ctx));
 }
 
 /**
@@ -165,7 +166,12 @@ function powerOn() {
   if (timeSinceOff < COOLDOWN_MS) {
     const waitMs = COOLDOWN_MS - timeSinceOff;
     console.log(`[Projector] In cooldown — delaying power on by ${Math.ceil(waitMs / 1000)}s`);
-    setTimeout(() => {
+    if (cooldownTimer) {
+      clearTimeout(cooldownTimer);
+      cooldownTimer = null;
+    }
+    cooldownTimer = setTimeout(() => {
+      cooldownTimer = null;
       sendCommand(COMMANDS.POWER_ON, 'POWER_ON');
       isProjectorOn = true;
     }, waitMs);
@@ -193,17 +199,31 @@ function clearTimers() {
     clearTimeout(postEndTimer);
     postEndTimer = null;
   }
+  if (cooldownTimer) {
+    clearTimeout(cooldownTimer);
+    cooldownTimer = null;
+  }
 }
 
 /**
- * Given the current bookings list, schedule projector on/off.
- * Called whenever bookings are updated.
+ * Given the current bookings list, schedule projector on/off and drive space
+ * lifecycle events (onSpaceActive / onSpaceIdle). The lifecycle scheduling
+ * always runs when appManagerSettings OR projectorSettings is enabled so that
+ * Uneekor is managed even when projector hardware is not connected.
  */
 function scheduleFromBookings(ctx) {
-  const settings = ctx.config.projectorSettings;
-  if (!settings || !settings.enabled) return;
-  if (!port && !SerialPort) return; // No serial support at all
+  const projSettings = ctx.config.projectorSettings;
+  const appMgrSettings = ctx.config.appManagerSettings;
+  const projectorEnabled = projSettings && projSettings.enabled;
+  const appManagerEnabled = appMgrSettings && appMgrSettings.enabled !== false;
 
+  // Bail out only if neither system needs the schedule
+  if (!projectorEnabled && !appManagerEnabled) return;
+
+  // Projector hardware writes require an open port
+  const projectorHardwareReady = projectorEnabled && port && port.isOpen;
+
+  const settings = projSettings || {};
   clearTimers();
 
   const now = new Date();
@@ -211,10 +231,10 @@ function scheduleFromBookings(ctx) {
   const preStartMinutes = settings.preStartMinutes || 5;
   const keepAliveGapMinutes = settings.keepAliveGapMinutes || 60;
 
-  // Filter to confirmed bookings for this bay
+  // Filter to confirmed bookings for this space
   // Prefer ISO timestamps for cross-midnight accuracy
-  const bayBookings = (ctx.bookings || [])
-    .filter(b => b.bayId === ctx.config.bayId && b.status === 'confirmed')
+  const spaceBookings = (ctx.bookings || [])
+    .filter(b => b.spaceId === ctx.config.spaceId && b.status === 'confirmed')
     .map(b => ({
       ...b,
       start: b.startTimeISO ? new Date(b.startTimeISO) : parseTimeToday(b.startTime, timezone),
@@ -222,37 +242,38 @@ function scheduleFromBookings(ctx) {
     }))
     .sort((a, b) => a.start - b.start);
 
-  console.log(`[Projector] Evaluating ${bayBookings.length} confirmed booking(s), projector state: ${isProjectorOn}`);
+  console.log(`[Projector] Evaluating ${spaceBookings.length} confirmed booking(s), projector state: ${isProjectorOn}`);
 
-  if (bayBookings.length === 0) {
-    // No bookings — send power off (always send to be safe)
+  if (spaceBookings.length === 0) {
+    // No bookings — power off projector and signal idle
     console.log('[Projector] No bookings — powering off');
-    powerOff();
-    emitBayIdle(ctx);
+    if (projectorHardwareReady) powerOff();
+    emitSpaceIdle(ctx);
     return;
   }
 
   // Find the currently active booking
-  const activeBooking = bayBookings.find(b => now >= b.start && now < b.end);
+  const activeBooking = spaceBookings.find(b => now >= b.start && now < b.end);
 
   // Find the next upcoming booking
-  const nextBooking = bayBookings.find(b => b.start > now);
+  const nextBooking = spaceBookings.find(b => b.start > now);
 
   if (activeBooking) {
     // We're in a session — projector should be on
-    if (isProjectorOn !== true) {
+    if (projectorHardwareReady && isProjectorOn !== true) {
       console.log(`[Projector] Active booking found — powering on`);
       powerOn();
     }
-    emitBayActive(ctx);
+    emitSpaceActive(ctx);
 
-    // Schedule check at end of this booking
+    // Schedule a fresh re-evaluation at booking end using live ctx data
     const msUntilEnd = activeBooking.end - now;
     if (msUntilEnd > 0) {
       postEndTimer = setTimeout(() => {
-        handleBookingEnd(ctx, activeBooking, bayBookings);
+        console.log('[Projector] Active booking timer fired — re-evaluating with live data');
+        scheduleFromBookings(ctx);
       }, msUntilEnd + 2000); // +2s buffer for time overlap
-      console.log(`[Projector] Will check at session end in ${Math.ceil(msUntilEnd / 60000)}m`);
+      console.log(`[Projector] Will re-evaluate at session end in ${Math.ceil(msUntilEnd / 60000)}m`);
     }
   } else if (nextBooking) {
     // No active booking — check if we should pre-start
@@ -261,11 +282,11 @@ function scheduleFromBookings(ctx) {
 
     if (msUntilStart <= preStartMs) {
       // Within pre-start window — turn on now
-      if (isProjectorOn !== true) {
+      if (projectorHardwareReady && isProjectorOn !== true) {
         console.log(`[Projector] Next booking in ${Math.ceil(msUntilStart / 60000)}m — powering on (pre-start)`);
         powerOn();
       }
-      emitBayActive(ctx);
+      emitSpaceActive(ctx);
       // Schedule re-evaluation at booking end so we can power off
       const msUntilEnd = nextBooking.end - now;
       if (msUntilEnd > 0) {
@@ -280,7 +301,7 @@ function scheduleFromBookings(ctx) {
       const scheduleIn = msUntilStart - preStartMs;
       preStartTimer = setTimeout(() => {
         console.log(`[Projector] Pre-start timer fired — powering on`);
-        powerOn();
+        if (projectorHardwareReady) powerOn();
         // Re-schedule to handle end-of-booking
         scheduleFromBookings(ctx);
       }, scheduleIn);
@@ -290,79 +311,69 @@ function scheduleFromBookings(ctx) {
       const keepAliveMs = keepAliveGapMinutes * 60 * 1000;
       if (msUntilStart > keepAliveMs) {
         console.log(`[Projector] No booking within ${keepAliveGapMinutes}m — powering off`);
-        powerOff();
-        emitBayIdle(ctx);
-      } else if (isProjectorOn !== false) {
+        if (projectorHardwareReady) powerOff();
+        emitSpaceIdle(ctx);
+      } else if (projectorHardwareReady && isProjectorOn !== false) {
         console.log(`[Projector] Next booking within ${keepAliveGapMinutes}m — keeping projector on`);
       }
     }
   } else {
-    // All bookings are in the past — send power off (always send to be safe)
+    // All bookings are in the past — power off and signal idle
     console.log('[Projector] All bookings ended — powering off');
-    powerOff();
-    emitBayIdle(ctx);
+    if (projectorHardwareReady) powerOff();
+    emitSpaceIdle(ctx);
   }
 }
 
-/**
- * Called when an active booking ends. Decide whether to keep projector on.
- */
-function handleBookingEnd(ctx, endedBooking, allBookings) {
-  const now = new Date();
-  const settings = ctx.config.projectorSettings;
-  const keepAliveGapMinutes = settings.keepAliveGapMinutes || 60;
-  const keepAliveMs = keepAliveGapMinutes * 60 * 1000;
-
-  // Find next booking after the one that just ended
-  const nextBooking = allBookings.find(b => b.start >= endedBooking.end && b.id !== endedBooking.id);
-
-  if (nextBooking) {
-    const gapMs = nextBooking.start - now;
-    if (gapMs <= keepAliveMs) {
-      console.log(`[Projector] Next booking in ${Math.ceil(gapMs / 60000)}m — keeping projector on`);
-      // Re-schedule for the next booking cycle
-      scheduleFromBookings(ctx);
-      return;
-    }
-  }
-
-  console.log(`[Projector] No booking within ${keepAliveGapMinutes}m — powering off`);
-  powerOff();
-  emitBayIdle(ctx);
-}
 
 /**
  * Initialize the projector manager.
+ * Always runs the initial schedule if appManagerSettings is enabled,
+ * even when projector hardware is not configured — so space lifecycle
+ * events (onSpaceActive / onSpaceIdle) fire correctly for app management.
  */
 function initProjector(ctx) {
-  const settings = ctx.config.projectorSettings;
-  if (!settings || !settings.enabled) {
-    console.log('[Projector] Projector control disabled in config');
+  // Clean up any previous init to prevent serial port handle leaks on double-init
+  destroyProjector();
+
+  const projSettings = ctx.config.projectorSettings;
+  const appMgrSettings = ctx.config.appManagerSettings;
+  const projectorEnabled = projSettings && projSettings.enabled;
+  const appManagerEnabled = appMgrSettings && appMgrSettings.enabled !== false;
+
+  if (!projectorEnabled && !appManagerEnabled) {
+    console.log('[Projector] Both projector control and app manager disabled — skipping init');
     return;
   }
 
-  if (!settings.comPort) {
-    console.log('[Projector] No COM port configured — projector control disabled');
-    return;
+  if (projectorEnabled) {
+    if (!projSettings.comPort) {
+      console.log('[Projector] Projector enabled but no COM port configured — hardware control disabled');
+    } else {
+      // Apply custom commands from config (with unescape for control characters)
+      if (projSettings.powerOnCmd) {
+        COMMANDS.POWER_ON = unescapeCommand(projSettings.powerOnCmd);
+      }
+      if (projSettings.powerOffCmd) {
+        COMMANDS.POWER_OFF = unescapeCommand(projSettings.powerOffCmd);
+      }
+
+      const baudRate = projSettings.baudRate || 115200;
+      console.log(`[Projector] Initializing — COM: ${projSettings.comPort}, baud: ${baudRate}, pre-start: ${projSettings.preStartMinutes}m, keep-alive: ${projSettings.keepAliveGapMinutes}m`);
+      console.log(`[Projector] Power ON cmd: ${JSON.stringify(COMMANDS.POWER_ON)}, Power OFF cmd: ${JSON.stringify(COMMANDS.POWER_OFF)}`);
+      openPort(projSettings.comPort, baudRate);
+    }
+  } else {
+    console.log('[Projector] Projector hardware control disabled — running lifecycle scheduling for app manager only');
   }
 
-  // Apply custom commands from config (with unescape for control characters)
-  if (settings.powerOnCmd) {
-    COMMANDS.POWER_ON = unescapeCommand(settings.powerOnCmd);
-  }
-  if (settings.powerOffCmd) {
-    COMMANDS.POWER_OFF = unescapeCommand(settings.powerOffCmd);
-  }
-
-  const baudRate = settings.baudRate || 115200;
-  console.log(`[Projector] Initializing — COM: ${settings.comPort}, baud: ${baudRate}, pre-start: ${settings.preStartMinutes}m, keep-alive: ${settings.keepAliveGapMinutes}m`);
-  console.log(`[Projector] Power ON cmd: ${JSON.stringify(COMMANDS.POWER_ON)}, Power OFF cmd: ${JSON.stringify(COMMANDS.POWER_OFF)}`);
-  openPort(settings.comPort, baudRate);
-
-  // Do initial schedule after a short delay to let the port open
+  // Always run the initial schedule (drives space lifecycle for app manager)
+  // Use a short delay when a serial port was opened to let it connect;
+  // otherwise run immediately.
+  const delay = (projectorEnabled && projSettings.comPort) ? 2000 : 0;
   setTimeout(() => {
     scheduleFromBookings(ctx);
-  }, 2000);
+  }, delay);
 }
 
 /**
@@ -384,6 +395,7 @@ module.exports = {
   powerOn,
   powerOff,
   queryStatus,
-  onBayActive,
-  onBayIdle,
+  onSpaceActive,
+  onSpaceIdle,
+  lifecycleCallbacks,
 };

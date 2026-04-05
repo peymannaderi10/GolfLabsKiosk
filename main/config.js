@@ -49,8 +49,8 @@ function loadConfig() {
     const configData = fs.readFileSync(CONFIG_PATH);
     const config = JSON.parse(configData);
     
-    if (!config.bayId || !config.locationId || !config.apiBaseUrl || !config.shellyIP) {
-        throw new Error('One or more required fields are missing from config.json: bayId, locationId, apiBaseUrl, shellyIP');
+    if (!config.spaceId || !config.locationId || !config.apiBaseUrl || !config.shellyIP) {
+        throw new Error('One or more required fields are missing from config.json: spaceId, locationId, apiBaseUrl, shellyIP');
     }
 
     if (!config.adminPassword) {

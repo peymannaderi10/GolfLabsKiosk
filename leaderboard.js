@@ -5,6 +5,8 @@
 
 let leaderboardData = [];
 let leagueInfo = null;
+let refreshInterval = null;  // Track interval to prevent duplicates
+let activeLeagueId = null;   // Track which league we're polling
 
 async function initialize() {
     console.log('Leaderboard display initializing...');
@@ -17,45 +19,51 @@ async function initialize() {
         return;
     }
 
-    // Fetch league state for header info
-    const state = await window.electronAPI.getLeagueState();
-    if (state && state.league) {
-        leagueInfo = state.league;
-        document.getElementById('lb-title').textContent = state.league.name;
+    activeLeagueId = settings.leagueId;
 
-        if (state.week) {
-            let subtitle = `Week ${state.week.weekNumber} — ${formatDate(state.week.date)}`;
-            // Show course name and par if available
-            if (state.course) {
-                subtitle += ` — ${state.course.courseName} (Par ${state.course.totalPar})`;
-            }
-            document.getElementById('lb-subtitle').textContent = subtitle;
-        } else {
-            document.getElementById('lb-subtitle').textContent = 'No active week';
+    // Fetch league metadata for header info (no userId required)
+    const info = await window.electronAPI.getLeagueInfo();
+    if (info) {
+        leagueInfo = info;
+        document.getElementById('lb-title').textContent = info.name || 'League Leaderboard';
+
+        // Build subtitle from available fields on the league record
+        const parts = [];
+        if (info.current_week_number) {
+            parts.push(`Week ${info.current_week_number}`);
         }
+        if (info.current_week_date) {
+            parts.push(formatDate(info.current_week_date));
+        }
+        if (info.course_name) {
+            const par = info.total_par ? ` (Par ${info.total_par})` : '';
+            parts.push(`${info.course_name}${par}`);
+        }
+        document.getElementById('lb-subtitle').textContent = parts.length > 0 ? parts.join(' — ') : '';
     }
 
     // Fetch initial leaderboard
-    try {
-        leaderboardData = await window.electronAPI.getLeagueLeaderboard(settings.leagueId);
-        renderLeaderboard();
-    } catch (error) {
-        console.error('Failed to fetch leaderboard:', error);
-    }
+    await refreshLeaderboard();
 
-    // Listen for real-time updates
+    // Listen for real-time updates (onSafe in preload prevents stacking)
     window.electronAPI.onLeagueScoreUpdate(handleScoreUpdate);
     window.electronAPI.onLeagueStandingsUpdate(handleStandingsUpdate);
 
-    // Refresh every 60 seconds as fallback
-    setInterval(async () => {
-        try {
-            leaderboardData = await window.electronAPI.getLeagueLeaderboard(settings.leagueId);
-            renderLeaderboard();
-        } catch (err) {
-            console.error('Leaderboard refresh failed:', err);
-        }
-    }, 60000);
+    // Refresh every 60 seconds as fallback — clear previous interval first
+    if (refreshInterval) {
+        clearInterval(refreshInterval);
+    }
+    refreshInterval = setInterval(refreshLeaderboard, 60000);
+}
+
+async function refreshLeaderboard() {
+    if (!activeLeagueId) return;
+    try {
+        leaderboardData = await window.electronAPI.getLeagueLeaderboard(activeLeagueId);
+        renderLeaderboard();
+    } catch (err) {
+        console.error('Leaderboard refresh failed:', err);
+    }
 }
 
 function renderLeaderboard() {
@@ -132,8 +140,9 @@ function handleScoreUpdate(payload) {
 
 function handleStandingsUpdate(payload) {
     console.log('Standings update received:', payload);
-    // Full refresh from server on standings update
-    initialize();
+    // Full refresh from server — just re-fetch data, don't re-initialize
+    // (calling initialize() again would stack intervals and re-register listeners)
+    refreshLeaderboard();
 }
 
 function formatDate(dateString) {

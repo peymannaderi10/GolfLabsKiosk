@@ -604,7 +604,7 @@ async function submitLeagueScore() {
 
         const batchData = {
             leagueWeekId: leagueState.week.id,
-            bayId: config.bayId,
+            spaceId: config.spaceId,
             enteredVia: 'kiosk',
             entries,
         };
@@ -832,7 +832,7 @@ window.electronAPI.onLeagueModeChanged((payload) => {
         leagueInitialized = false;
         hideLeagueUI();
         hidePlayerPicker();
-        // Update core.js state — this re-locks the bay if no booking
+        // Update core.js state — this re-locks the space if no booking
         setLeagueModeState(false, null, null);
     }
 });

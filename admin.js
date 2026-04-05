@@ -4,10 +4,49 @@ let isEditMode = false;
 
 let cachedBookings = [];
 
+/**
+ * Show a non-blocking modal confirm dialog and return a Promise<boolean>.
+ * Replaces all window.confirm() calls so dialogs never block the renderer
+ * event loop and always appear above the fullscreen kiosk window.
+ */
+function adminConfirm(message) {
+    return new Promise((resolve) => {
+        const overlay = document.getElementById('admin-confirm-overlay');
+        const messageEl = document.getElementById('admin-confirm-message');
+        const okBtn = document.getElementById('admin-confirm-ok');
+        const cancelBtn = document.getElementById('admin-confirm-cancel');
+
+        messageEl.textContent = message;
+        overlay.style.display = 'flex';
+
+        function cleanup(result) {
+            overlay.style.display = 'none';
+            okBtn.removeEventListener('click', onOk);
+            cancelBtn.removeEventListener('click', onCancel);
+            resolve(result);
+        }
+
+        function onOk() { cleanup(true); }
+        function onCancel() { cleanup(false); }
+
+        okBtn.addEventListener('click', onOk);
+        cancelBtn.addEventListener('click', onCancel);
+    });
+}
+
+/**
+ * Show a status message in the System page hardware section.
+ * Used in place of alert() for monitor/websocket operation results.
+ */
+function showHardwareMessage(message, type) {
+    // Re-use projector message area which is always present on the hardware page
+    showProjectorMessage(message, type || 'success');
+}
+
 // Navigation function — sidebar-based
 function navigateTo(pageId) {
     // Redirect menu to default section
-    if (pageId === 'menu') pageId = 'bay-control';
+    if (pageId === 'menu') pageId = 'space-control';
 
     // Hide all pages
     const pages = document.querySelectorAll('.page');
@@ -26,7 +65,7 @@ function navigateTo(pageId) {
     });
 
     // Load data for specific pages
-    if (pageId === 'bay-control') {
+    if (pageId === 'space-control') {
         loadBookingInfo();
     } else if (pageId === 'hardware') {
         loadDisplayInfo();
@@ -78,23 +117,23 @@ function updateDisplayInfo() {
 }
 
 async function restartApp() {
-    if (confirm('Are you sure you want to restart the application?')) {
+    if (await adminConfirm('Are you sure you want to restart the application?')) {
         try {
             await window.electronAPI.adminRestartApp();
         } catch (error) {
             console.error('Restart failed:', error);
-            alert('Failed to restart application');
+            showConfigMessage('Failed to restart application', 'error');
         }
     }
 }
 
 async function closeApp() {
-    if (confirm('Are you sure you want to close the application?')) {
+    if (await adminConfirm('Are you sure you want to close the application?')) {
         try {
             await window.electronAPI.adminCloseApp();
         } catch (error) {
             console.error('Close failed:', error);
-            alert('Failed to close application');
+            showConfigMessage('Failed to close application', 'error');
         }
     }
 }
@@ -102,32 +141,32 @@ async function closeApp() {
 async function disconnectMonitors() {
     try {
         const result = await window.electronAPI.adminDisconnectMonitors();
-        alert(result.message);
+        showHardwareMessage(result.message, 'success');
         await loadDisplayInfo();
     } catch (error) {
         console.error('Disconnect failed:', error);
-        alert('Failed to disconnect monitors');
+        showHardwareMessage('Failed to disconnect monitors', 'error');
     }
 }
 
 async function reconnectMonitors() {
     try {
         const result = await window.electronAPI.adminReconnectMonitors();
-        alert(result.message);
+        showHardwareMessage(result.message, 'success');
         await loadDisplayInfo();
     } catch (error) {
         console.error('Reconnect failed:', error);
-        alert('Failed to reconnect monitors');
+        showHardwareMessage('Failed to reconnect monitors', 'error');
     }
 }
 
 async function reconnectWebsocket() {
     try {
         const result = await window.electronAPI.adminReconnectWebsocket();
-        alert(result.message);
+        showHardwareMessage(result.message, 'success');
     } catch (error) {
         console.error('WebSocket reconnect failed:', error);
-        alert('Failed to reconnect WebSocket');
+        showHardwareMessage('Failed to reconnect WebSocket', 'error');
     }
 }
 
@@ -161,7 +200,7 @@ async function validatePassword(event) {
             document.getElementById('password-overlay').style.display = 'none';
             document.getElementById('admin-content').classList.add('unlocked');
             loadConfig();
-            navigateTo('bay-control');
+            navigateTo('space-control');
         } else {
             showPasswordError(result.error || 'Invalid password');
             passwordInput.value = '';
@@ -198,7 +237,7 @@ async function loadConfig() {
 }
 
 function populateConfigForm(config) {
-    document.getElementById('bayId').value = config.bayId || '';
+    document.getElementById('spaceId').value = config.spaceId || '';
     document.getElementById('locationId').value = config.locationId || '';
     document.getElementById('apiBaseUrl').value = config.apiBaseUrl || '';
     document.getElementById('kioskApiKey').value = config.kioskApiKey || '';
@@ -272,7 +311,7 @@ async function saveConfig() {
         if (document.getElementById('extensionOpt60').checked) extOptions.push(60);
 
         const newConfig = {
-            bayId: document.getElementById('bayId').value.trim(),
+            spaceId: document.getElementById('spaceId').value.trim(),
             locationId: document.getElementById('locationId').value.trim(),
             apiBaseUrl: document.getElementById('apiBaseUrl').value.trim(),
             kioskApiKey: document.getElementById('kioskApiKey').value.trim(),
@@ -419,7 +458,7 @@ async function refreshLogs() {
 }
 
 async function clearLogs() {
-    if (confirm('Are you sure you want to clear all logs?')) {
+    if (await adminConfirm('Are you sure you want to clear all logs?')) {
         try {
             await window.electronAPI.clearLogs();
             renderLogs([]);
@@ -529,7 +568,7 @@ function renderBookings(bookings) {
     
     // Render booking list
     if (sortedBookings.length === 0) {
-        listEl.innerHTML = '<div class="no-bookings">No bookings loaded for this bay</div>';
+        listEl.innerHTML = '<div class="no-bookings">No bookings loaded for this space</div>';
         return;
     }
     
@@ -662,7 +701,7 @@ async function loadSystemInfo() {
 async function clearCache() {
     const messageEl = document.getElementById('cache-message');
     
-    if (!confirm('This will clear all cached bookings and request fresh data. Continue?')) {
+    if (!await adminConfirm('This will clear all cached bookings and request fresh data. Continue?')) {
         return;
     }
     

@@ -75,8 +75,16 @@ function createWindow(ctx, display, isPrimary = false) {
   window.on('closed', () => {
     if (isPrimary) {
       ctx.mainWindow = null;
-      if (ctx.socket) ctx.socket.disconnect();
-      clearInterval(ctx.pollingInterval);
+      const { disconnectWebSocket } = require('./websocket');
+      disconnectWebSocket(ctx);
+      if (ctx.pollingInterval) {
+        clearInterval(ctx.pollingInterval);
+        ctx.pollingInterval = null;
+      }
+    } else {
+      // Remove dead window reference from the array to prevent accumulation
+      const idx = ctx.additionalWindows.indexOf(window);
+      if (idx !== -1) ctx.additionalWindows.splice(idx, 1);
     }
   });
   

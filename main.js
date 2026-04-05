@@ -6,6 +6,7 @@ const { connectToWebSocket, setupPolling } = require('./main/websocket');
 const { registerIpcHandlers } = require('./main/ipc-handlers');
 const { initProjector, destroyProjector } = require('./main/projector');
 const { initAppManager } = require('./main/app-manager');
+const { initHealth, destroyHealth } = require('./main/health');
 
 const isDev = process.argv.includes('--dev');
 
@@ -52,8 +53,9 @@ app.on('ready', () => {
   registerIpcHandlers(ctx);
   connectToWebSocket(ctx);
   setupPolling(ctx);
-  initAppManager(ctx);  // Register bay lifecycle hooks before projector fires first schedule
+  initAppManager(ctx);  // Register space lifecycle hooks before projector fires first schedule
   initProjector(ctx);
+  initHealth(ctx);      // Memory monitoring + daily scheduled restart
 });
 
 app.on('window-all-closed', function () {
@@ -69,6 +71,7 @@ app.on('activate', function () {
 app.on('will-quit', () => {
   globalShortcut.unregisterAll();
   destroyProjector();
+  destroyHealth();
 });
 
 // Global error handling for packaged app

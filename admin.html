@@ -17,7 +17,7 @@
                 <p>Kiosk Admin Terminal</p>
             </div>
             <h2>Admin Access</h2>
-            <p class="login-subtitle">Authenticate to manage this bay.</p>
+            <p class="login-subtitle">Authenticate to manage this space.</p>
             <form onsubmit="validatePassword(event)">
                 <div class="password-field">
                     <label>Access Key</label>
@@ -36,6 +36,19 @@
     </div>
 
     <!-- ═══════════════════════════════════════════════
+         CONFIRM DIALOG MODAL
+         ═══════════════════════════════════════════════ -->
+    <div class="password-overlay" id="admin-confirm-overlay" style="display: none; z-index: 9999;">
+        <div class="password-prompt">
+            <p id="admin-confirm-message" style="margin: 0 0 24px; font-size: 15px; line-height: 1.5; color: rgba(255,255,255,0.85);"></p>
+            <div style="display: flex; gap: 12px; justify-content: flex-end;">
+                <button class="password-exit" id="admin-confirm-cancel" type="button" style="flex: 0 0 auto; width: auto; padding: 10px 20px;">Cancel</button>
+                <button class="password-submit" id="admin-confirm-ok" type="button" style="flex: 0 0 auto; width: auto; padding: 10px 20px; margin-top: 0;">Confirm</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════
          ADMIN PANEL (sidebar + content)
          ═══════════════════════════════════════════════ -->
     <div class="admin-content" id="admin-content">
@@ -49,9 +62,9 @@
                 <span class="sidebar-badge">Kiosk Admin</span>
             </div>
             <div class="sidebar-nav">
-                <button class="nav-item active" data-page="bay-control" onclick="navigateTo('bay-control')">
+                <button class="nav-item active" data-page="space-control" onclick="navigateTo('space-control')">
                     <span class="material-symbols-outlined">sports_golf</span>
-                    <span>Bay Control</span>
+                    <span>Space Control</span>
                 </button>
                 <button class="nav-item" data-page="hardware" onclick="navigateTo('hardware')">
                     <span class="material-symbols-outlined">settings_input_component</span>
@@ -77,10 +90,10 @@
         <!-- MAIN CONTENT -->
         <main class="main-content">
 
-            <!-- ═══════════ BAY CONTROL ═══════════ -->
-            <section class="page active" id="bay-control-page">
+            <!-- ═══════════ SPACE CONTROL ═══════════ -->
+            <section class="page active" id="space-control-page">
                 <div class="page-header">
-                    <h1 class="page-title">Bay Control</h1>
+                    <h1 class="page-title">Space Control</h1>
                     <p class="page-description">Screen override, bookings, and session management.</p>
                 </div>
 
@@ -261,8 +274,8 @@
                                     <div class="config-grid">
                                         <div class="form-row">
                                             <div class="form-group">
-                                                <label class="form-label">Bay ID</label>
-                                                <input type="text" id="bayId" placeholder="UUID" disabled>
+                                                <label class="form-label">Space ID</label>
+                                                <input type="text" id="spaceId" placeholder="UUID" disabled>
                                             </div>
                                             <div class="form-group">
                                                 <label class="form-label">Location ID</label>

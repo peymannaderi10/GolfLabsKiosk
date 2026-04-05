@@ -1,11 +1,11 @@
 /**
  * App Manager
  *
- * Manages Uneekor application lifecycle in sync with bay booking schedule:
- * - Launches Uneekor Launcher when bay becomes active (pre-start or booking start)
- * - Kills Uneekor apps when bay becomes idle (no booking within keepAlive gap)
+ * Manages Uneekor application lifecycle in sync with space booking schedule:
+ * - Launches Uneekor Launcher when space becomes active (pre-start or booking start)
+ * - Kills Uneekor apps when space becomes idle (no booking within keepAlive gap)
  *
- * Hooks into the projector module's bay lifecycle events so both systems
+ * Hooks into the projector module's space lifecycle events so both systems
  * follow the same pre-start / keep-alive schedule.
  */
 
@@ -39,7 +39,7 @@ const LAUNCHER_EXE_PATH = path.join(UNEEKOR_PATH, 'Launcher', 'UneekorLauncher.e
 function getRunningProcesses() {
   return new Promise((resolve) => {
     const cmd = 'Get-Process | Where-Object { $_.Path } | Select-Object Id,ProcessName,Path | ConvertTo-Csv -NoTypeInformation';
-    execFile('powershell.exe', ['-NoProfile', '-Command', cmd], (error, stdout) => {
+    execFile('powershell.exe', ['-NoProfile', '-Command', cmd], { timeout: 15000 }, (error, stdout) => {
       if (error) {
         console.error(`[AppManager] Error listing processes: ${error.message}`);
         resolve([]);
@@ -183,7 +183,7 @@ async function killAllUneekor() {
  */
 function killByPid(pid, name) {
   return new Promise((resolve) => {
-    execFile('taskkill', ['/F', '/PID', pid], (error) => {
+    execFile('taskkill', ['/F', '/PID', pid], { timeout: 10000 }, (error) => {
       if (error) {
         console.error(`[AppManager] Failed to kill ${name} (PID ${pid}): ${error.message}`);
         resolve({ pid, name, killed: false });
@@ -197,7 +197,7 @@ function killByPid(pid, name) {
 
 /**
  * Called when a booking session ends (renderer-driven).
- * Kills simulator apps but keeps launcher alive if bay is still active.
+ * Kills simulator apps but keeps launcher alive if space is still active.
  */
 async function onSessionEnd(ctx) {
   const settings = ctx.config.appManagerSettings;
@@ -208,7 +208,9 @@ async function onSessionEnd(ctx) {
 }
 
 /**
- * Initialize the app manager and register bay lifecycle hooks.
+ * Initialize the app manager and register space lifecycle hooks.
+ * Safe to call once — hooks are registered in the projector lifecycle arrays
+ * which persist for the process lifetime. Do not call more than once.
  */
 function initAppManager(ctx) {
   const settings = ctx.config.appManagerSettings;
@@ -217,21 +219,28 @@ function initAppManager(ctx) {
     return;
   }
 
-  const { onBayActive, onBayIdle } = require('./projector');
+  const { onSpaceActive, onSpaceIdle, lifecycleCallbacks } = require('./projector');
 
-  // When bay becomes active (pre-start or booking start) — launch Uneekor
-  onBayActive(() => {
-    console.log('[AppManager] Bay active — launching Uneekor');
+  // Guard against double-init: only register if no app manager hooks are present yet.
+  // lifecycleCallbacks arrays grow forever if initAppManager is called multiple times.
+  if (lifecycleCallbacks && lifecycleCallbacks.onSpaceActive.length > 0) {
+    console.log('[AppManager] Lifecycle hooks already registered — skipping duplicate init');
+    return;
+  }
+
+  // When space becomes active (pre-start or booking start) — launch Uneekor
+  onSpaceActive(() => {
+    console.log('[AppManager] Space active — launching Uneekor');
     launchUneekor();
   });
 
-  // When bay becomes idle (no bookings within keepAlive gap) — kill everything
-  onBayIdle(() => {
-    console.log('[AppManager] Bay idle — closing all Uneekor apps');
+  // When space becomes idle (no bookings within keepAlive gap) — kill everything
+  onSpaceIdle(() => {
+    console.log('[AppManager] Space idle — closing all Uneekor apps');
     killAllUneekor();
   });
 
-  console.log('[AppManager] Initialized — Uneekor follows bay booking schedule');
+  console.log('[AppManager] Initialized — Uneekor follows space booking schedule');
 }
 
 module.exports = {

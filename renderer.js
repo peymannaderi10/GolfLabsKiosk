@@ -11,6 +11,7 @@ let localBookings = []; // This is now the definitive in-memory store for the re
 let heartbeatInterval = null;
 let isManuallyUnlocked = false;
 let manualUnlockEndTime = null; // Track when timed unlock expires
+let isPrimaryDisplay = null; // null = not yet resolved; set during initialize()
 
 // Session extension state machine
 // States: idle | loading | showing | confirming | processing | declined
@@ -39,6 +40,13 @@ function broadcastExtensionState(state, extra = {}) {
 const LOCAL_CHECK_INTERVAL_MS = 5000;  // Check every 5 seconds
 
 function logAccessEvent(action, success, booking = null) {
+    // Only the primary window logs access events.
+    // isPrimaryDisplay is null until initialize() resolves — skip logging during that race window.
+    if (isPrimaryDisplay !== true) {
+        console.log(`Skipping access log (${isPrimaryDisplay === null ? 'not yet resolved' : 'secondary display'}): ${action}`);
+        return;
+    }
+
     // Do not log session events for manual admin overrides
     if (booking && booking.id === 'manual-override') {
         console.log("Skipping access log for manual override action.");
@@ -53,7 +61,7 @@ function logAccessEvent(action, success, booking = null) {
     const logData = {
         action: action,
         success: success,
-        bay_id: config.bayId,
+        space_id: config.spaceId,
         location_id: config.locationId,
         booking_id: booking ? booking.id : undefined,
         user_id: booking ? booking.userId : undefined,
@@ -69,6 +77,7 @@ function setLockedState(isLocked, booking = null) {
     if (isCurrentlyLocked === isLocked) {
         return; // State is already correct, do nothing.
     }
+    const isFirstRun = isCurrentlyLocked === null; // true on fresh page load (startup or admin exit)
     isCurrentlyLocked = isLocked;
 
     // Tell the main process to make the window click-through when unlocked
@@ -92,7 +101,7 @@ function setLockedState(isLocked, booking = null) {
         // Reset extension state when screen locks
         resetExtensionState();
 
-        if (currentBooking) {
+        if (currentBooking && !isFirstRun) {
             logAccessEvent('session_ended', true, currentBooking);
         }
         currentBooking = null;
@@ -116,8 +125,12 @@ function setLockedState(isLocked, booking = null) {
         currentBooking = booking;
         
         console.log("Unlocking screen. Local check stopped.");
-        
-        logAccessEvent('session_started', true, booking);
+
+        // Only log session_started on genuine state transitions, not on page reload
+        // reconnecting to an already-active session (e.g., returning from admin mode)
+        if (!isFirstRun) {
+            logAccessEvent('session_started', true, booking);
+        }
 
         updateCountdown();
         if(countdownInterval) clearInterval(countdownInterval);
@@ -157,7 +170,7 @@ function checkForActiveBooking(bookings) {
 
     const now = new Date();
     const activeBooking = bookings.find(b => {
-        if (b.bayId !== config.bayId) return false;
+        if (b.spaceId !== config.spaceId) return false;
         // Only consider confirmed bookings - ignore abandoned, cancelled, etc.
         if (b.status !== 'confirmed') return false;
 
@@ -251,7 +264,7 @@ function checkExtensionTrigger(diffMs) {
 
     const nextBooking = localBookings.find(b => {
         if (b.id === currentBooking.id) return false;
-        if (b.bayId !== config.bayId) return false;
+        if (b.spaceId !== config.spaceId) return false;
         // Only consider confirmed bookings as blocking
         if (b.status !== 'confirmed') return false;
         const bStart = b.startTimeISO ? new Date(b.startTimeISO) : parseTime(b.startTime);
@@ -507,10 +520,18 @@ unlockScreen.style.display = 'none';
 
 async function initialize() {
     console.log("Initializing renderer...");
-    
+
     config = await window.electronAPI.getConfig();
     console.log('Config loaded:', config);
-    
+
+    // Determine whether this window is the primary (booking control) display or a secondary
+    // league/TV display. When multiple monitors are connected, additionalWindows holds the
+    // secondary windows and the main window is primary. On a single-monitor setup, the sole
+    // window is both primary and league display, so isPrimaryDisplay stays true in both cases.
+    const isLeague = await window.electronAPI.isLeagueDisplay();
+    isPrimaryDisplay = !isLeague || (await window.electronAPI.getDisplayInfo()).additionalWindowsCount === 0;
+    console.log(`Display role: ${isPrimaryDisplay ? 'primary (will log access events)' : 'secondary/league (access logging suppressed)'}`);
+
     // Get the initial manual unlock state from the main process
     const unlockState = await window.electronAPI.getManualUnlockState();
     isManuallyUnlocked = unlockState.unlocked;
@@ -523,8 +544,12 @@ async function initialize() {
     // Set the correct state, which will also start the high-frequency local check.
     checkForActiveBooking(localBookings);
 
-    // Start the heartbeat interval. This logic is unchanged.
-    startHeartbeat();
+    // Only the primary display sends heartbeats — secondary displays skip to avoid duplicate API calls
+    if (isPrimaryDisplay) {
+        startHeartbeat();
+    } else {
+        console.log('Secondary display — heartbeat suppressed');
+    }
     
     // Listen for extension state updates from other screens
     window.electronAPI.onExtensionStateUpdate(handleRemoteExtensionState);
@@ -620,12 +645,12 @@ function startHeartbeat() {
 }
 
 function sendHeartbeat() {
-    if (!config || !config.bayId) {
-        console.error("Cannot send heartbeat: config or bayId is missing.");
+    if (!config || !config.spaceId) {
+        console.error("Cannot send heartbeat: config or spaceId is missing.");
         return;
     }
     console.log("Sending heartbeat...");
-    window.electronAPI.sendHeartbeat(config.bayId)
+    window.electronAPI.sendHeartbeat(config.spaceId)
         .then(response => {
             console.log("Heartbeat successful:", response);
         })

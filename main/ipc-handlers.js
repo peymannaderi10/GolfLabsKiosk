@@ -82,11 +82,13 @@ function registerIpcHandlers(ctx) {
   });
 
   ipcMain.handle('admin-reconnect-websocket', () => {
-      const { connectToWebSocket } = require('./websocket');
-      if (ctx.socket) {
-          ctx.socket.disconnect();
-      }
+      const { connectToWebSocket, setupPolling } = require('./websocket');
+      // connectToWebSocket now calls disconnectWebSocket internally,
+      // which properly tears down the old socket (removes listeners,
+      // disables background reconnection, disconnects, and nulls ref)
       connectToWebSocket(ctx);
+      // Restore polling in case it was cleared (e.g., window close handler)
+      setupPolling(ctx);
       return { success: true, message: 'WebSocket reconnection initiated' };
   });
 
@@ -165,9 +167,9 @@ function registerIpcHandlers(ctx) {
       ctx.bookings = [];
       
       if (ctx.socket && ctx.socket.connected) {
-          ctx.socket.emit('request_initial_bookings', { 
-              locationId: ctx.config.locationId, 
-              bayId: ctx.config.bayId 
+          ctx.socket.emit('request_initial_bookings', {
+              locationId: ctx.config.locationId,
+              spaceId: ctx.config.spaceId
           });
           return { success: true, message: 'Cache cleared and sync requested' };
       } else {
@@ -252,7 +254,7 @@ function registerIpcHandlers(ctx) {
 
   ipcMain.handle('admin-save-config', (event, newConfig) => {
       try {
-          const requiredFields = ['bayId', 'locationId', 'apiBaseUrl', 'shellyIP'];
+          const requiredFields = ['spaceId', 'locationId', 'apiBaseUrl', 'shellyIP'];
           for (const field of requiredFields) {
               if (!newConfig[field] || typeof newConfig[field] !== 'string' || newConfig[field].trim() === '') {
                   throw new Error(`Required field '${field}' is missing or empty`);
@@ -386,12 +388,12 @@ function registerIpcHandlers(ctx) {
       };
   });
 
-  ipcMain.handle('send-heartbeat', async (event, bayId) => {
+  ipcMain.handle('send-heartbeat', async (event, spaceId) => {
       if (!ctx.config) {
           console.error('Heartbeat failed: Kiosk config not loaded.');
           throw new Error('Kiosk config not loaded');
       }
-      const url = `${ctx.config.apiBaseUrl}/bays/${bayId}/heartbeat`;
+      const url = `${ctx.config.apiBaseUrl}/spaces/${spaceId}/heartbeat`;
       console.log(`Sending heartbeat to: ${url}`);
       
       try {
@@ -464,7 +466,7 @@ function registerIpcHandlers(ctx) {
           const response = await api.post(url, {
               extensionMinutes,
               locationId: ctx.config.locationId,
-              bayId: ctx.config.bayId,
+              spaceId: ctx.config.spaceId,
               useFreeMinutes: !!useFreeMinutes,
           });
           console.log('Extend booking response:', response.data);
@@ -480,6 +482,8 @@ function registerIpcHandlers(ctx) {
   });
 
   // --- Extension State Broadcast (sync across all screens) ---
+  // Guard: ipcMain.on stacks if called multiple times (unlike ipcMain.handle which throws)
+  ipcMain.removeAllListeners('extension-state-broadcast');
   ipcMain.on('extension-state-broadcast', (event, stateData) => {
       console.log('Broadcasting extension state to all windows:', stateData.state);
       const allWindows = [ctx.mainWindow, ...ctx.additionalWindows];
@@ -493,30 +497,30 @@ function registerIpcHandlers(ctx) {
   // --- League Mode IPC Handlers ---
 
   ipcMain.handle('get-league-settings', async () => {
-      // Check live bay state from API first (handles restart after remote activation)
-      if (ctx.config && ctx.config.bayId && ctx.config.apiBaseUrl) {
+      // Check live space state from API first (handles restart after remote activation)
+      if (ctx.config && ctx.config.spaceId && ctx.config.apiBaseUrl) {
           try {
-              const url = `${ctx.config.apiBaseUrl}/bays/${ctx.config.bayId}/heartbeat`;
+              const url = `${ctx.config.apiBaseUrl}/spaces/${ctx.config.spaceId}/heartbeat`;
               const response = await api.post(url, {});
-              const bay = response.data;
-              if (bay && bay.league_mode_active && bay.league_mode_league_id) {
-                  // Bay has league mode active in DB — fetch league times
+              const space = response.data;
+              if (space && space.league_mode_active && space.league_mode_league_id) {
+                  // Space has league mode active in DB — fetch league times
                   if (!ctx.config.leagueSettings) ctx.config.leagueSettings = {};
                   ctx.config.leagueSettings.enabled = true;
-                  ctx.config.leagueSettings.leagueId = bay.league_mode_league_id;
+                  ctx.config.leagueSettings.leagueId = space.league_mode_league_id;
 
                   let startTime = null;
                   let endTime = null;
                   try {
-                      const leagueRes = await api.get(`${ctx.config.apiBaseUrl}/leagues/${bay.league_mode_league_id}`);
+                      const leagueRes = await api.get(`${ctx.config.apiBaseUrl}/leagues/${space.league_mode_league_id}`);
                       startTime = leagueRes.data?.start_time || null;
                       endTime = leagueRes.data?.end_time || null;
                   } catch (e) { /* fallback to no times */ }
 
-                  return { enabled: true, leagueId: bay.league_mode_league_id, startTime, endTime };
+                  return { enabled: true, leagueId: space.league_mode_league_id, startTime, endTime };
               }
           } catch (err) {
-              console.warn('Failed to check bay league state on startup:', err.message);
+              console.warn('Failed to check space league state on startup:', err.message);
           }
       }
       return ctx.config ? (ctx.config.leagueSettings || { enabled: false, leagueId: '' }) : { enabled: false, leagueId: '' };
@@ -539,6 +543,26 @@ function registerIpcHandlers(ctx) {
           if (error.response) {
               console.error('League state error details:', error.response.data);
           }
+          return null;
+      }
+  });
+
+  // Fetch league metadata (name, current week, course) without requiring a userId.
+  // Used by the leaderboard TV display for its header.
+  ipcMain.handle('get-league-info', async () => {
+      if (!ctx.config || !ctx.config.leagueSettings || !ctx.config.leagueSettings.enabled) {
+          return null;
+      }
+      const { leagueId } = ctx.config.leagueSettings;
+      if (!leagueId) return null;
+
+      try {
+          const url = `${ctx.config.apiBaseUrl}/leagues/${encodeURIComponent(leagueId)}`;
+          console.log(`Fetching league info from: ${url}`);
+          const response = await api.get(url);
+          return response.data || null;
+      } catch (error) {
+          console.error('Error fetching league info:', error.message);
           return null;
       }
   });

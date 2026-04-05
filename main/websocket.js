@@ -3,10 +3,29 @@ const axios = require('axios');
 const { scheduleFromBookings } = require('./projector');
 const { onSessionEnd } = require('./app-manager');
 
+/**
+ * Fully tear down an existing socket connection — remove all listeners,
+ * disable reconnection so it doesn't try to reconnect in the background,
+ * and disconnect. This prevents orphaned socket.io clients from lingering
+ * in memory when we create a new connection (e.g., admin-triggered reconnect).
+ */
+function disconnectWebSocket(ctx) {
+  if (ctx.socket) {
+    console.log('Cleaning up existing WebSocket connection...');
+    ctx.socket.removeAllListeners();
+    ctx.socket.io.opts.reconnection = false; // prevent background reconnection
+    ctx.socket.disconnect();
+    ctx.socket = null;
+  }
+}
+
 function connectToWebSocket(ctx) {
   if (!ctx.config) return;
 
-  const { locationId, bayId, apiBaseUrl, kioskApiKey } = ctx.config;
+  // Always clean up any existing socket before creating a new one
+  disconnectWebSocket(ctx);
+
+  const { locationId, spaceId, apiBaseUrl, kioskApiKey } = ctx.config;
   const apiHeaders = { 'X-Kiosk-Key': kioskApiKey || '' };
   console.log(`Connecting to WebSocket server at ${apiBaseUrl}`);
 
@@ -21,10 +40,10 @@ function connectToWebSocket(ctx) {
 
   ctx.socket.on('connect', () => {
     console.log(`WebSocket connected: ${ctx.socket.id}`);
-    console.log(`Registering kiosk for location: ${locationId}, bay: ${bayId}`);
-    ctx.socket.emit('register_kiosk', { locationId, bayId });
+    console.log(`Registering kiosk for location: ${locationId}, space: ${spaceId}`);
+    ctx.socket.emit('register_kiosk', { locationId, spaceId });
 
-    ctx.socket.emit('request_initial_bookings', { locationId, bayId });
+    ctx.socket.emit('request_initial_bookings', { locationId, spaceId });
 
     if (ctx.config.leagueSettings && ctx.config.leagueSettings.enabled && ctx.config.leagueSettings.leagueId) {
       console.log(`League mode enabled. Joining league room for league: ${ctx.config.leagueSettings.leagueId}`);
@@ -46,7 +65,7 @@ function connectToWebSocket(ctx) {
 
   ctx.socket.on('bookings_updated', (payload) => {
     console.log('Received full bookings refresh:', payload);
-    if (payload.bayId === ctx.config.bayId) {
+    if (payload.spaceId === ctx.config.spaceId) {
       ctx.bookings = payload.bookings;
       [ctx.mainWindow, ...ctx.additionalWindows].forEach(window => {
         if (window && !window.isDestroyed()) {
@@ -60,7 +79,7 @@ function connectToWebSocket(ctx) {
   
   ctx.socket.on('booking_update', (payload) => {
     console.log('Received single booking update:', payload);
-    if (payload.bayId === ctx.config.bayId) {
+    if (payload.spaceId === ctx.config.spaceId) {
       const index = ctx.bookings.findIndex(b => b.id === payload.booking.id);
 
       if (payload.action === 'add') {
@@ -106,8 +125,8 @@ function connectToWebSocket(ctx) {
   ctx.socket.on('league_mode_changed', (payload) => {
     console.log('Received league_mode_changed:', payload);
     
-    if (payload.bayId && payload.bayId !== ctx.config.bayId) {
-      console.log(`League mode change is for bay ${payload.bayId}, not us (${ctx.config.bayId}). Ignoring.`);
+    if (payload.spaceId && payload.spaceId !== ctx.config.spaceId) {
+      console.log(`League mode change is for space ${payload.spaceId}, not us (${ctx.config.spaceId}). Ignoring.`);
       return;
     }
 
@@ -139,8 +158,8 @@ function connectToWebSocket(ctx) {
         }
     };
     
-    if (payload.bayId !== ctx.config.bayId) {
-      const message = `Unlock command is for bay ${payload.bayId}, but we are bay ${ctx.config.bayId}. Ignoring.`;
+    if (payload.spaceId !== ctx.config.spaceId) {
+      const message = `Unlock command is for space ${payload.spaceId}, but we are space ${ctx.config.spaceId}. Ignoring.`;
       console.log(message);
       respond({ success: false, error: message });
       return;
@@ -182,7 +201,7 @@ function connectToWebSocket(ctx) {
       if (isValidUUID) {
         const logData = {
           location_id: locationId,
-          bay_id: ctx.config.bayId,
+          space_id: ctx.config.spaceId,
           booking_id: bookingId,
           action: 'door_unlock_success',
           success: true,
@@ -214,7 +233,7 @@ function connectToWebSocket(ctx) {
       const isFailUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(bookingId);
       const logData = {
         location_id: locationId,
-        bay_id: ctx.config.bayId,
+        space_id: ctx.config.spaceId,
         booking_id: isFailUUID ? bookingId : null,
         action: 'door_unlock_failure',
         success: false,
@@ -249,16 +268,21 @@ function connectToWebSocket(ctx) {
 }
 
 function setupPolling(ctx) {
+    // Clear any existing polling interval to prevent duplicates
+    if (ctx.pollingInterval) {
+        clearInterval(ctx.pollingInterval);
+        ctx.pollingInterval = null;
+    }
     const SIX_HOURS = 6 * 60 * 60 * 1000;
     ctx.pollingInterval = setInterval(() => {
         if (ctx.socket && ctx.socket.connected) {
             console.log('Polling for full booking refresh...');
-            ctx.socket.emit('request_initial_bookings', { 
-                locationId: ctx.config.locationId, 
-                bayId: ctx.config.bayId 
+            ctx.socket.emit('request_initial_bookings', {
+                locationId: ctx.config.locationId,
+                spaceId: ctx.config.spaceId
             });
         }
     }, SIX_HOURS);
 }
 
-module.exports = { connectToWebSocket, setupPolling };
+module.exports = { connectToWebSocket, disconnectWebSocket, setupPolling };
