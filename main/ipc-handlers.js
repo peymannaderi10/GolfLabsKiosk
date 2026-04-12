@@ -7,6 +7,8 @@ const axios = require('axios');
 const { closeAdditionalWindows, recreateAdditionalWindows } = require('./windows');
 const { onSessionEnd } = require('./app-manager');
 const { queryStatus } = require('./projector');
+const { KIOSK_API_KEY } = require('./constants');
+const { updateAdminPassword } = require('./installation');
 
 function hashPassword(password) {
   const salt = crypto.randomBytes(16).toString('hex');
@@ -26,7 +28,7 @@ function verifyPassword(password, stored) {
 
 function createApiClient(ctx) {
   return axios.create({
-    headers: { 'X-Kiosk-Key': ctx.config.kioskApiKey || '' },
+    headers: { 'X-Kiosk-Key': KIOSK_API_KEY },
   });
 }
 
@@ -110,25 +112,8 @@ function registerIpcHandlers(ctx) {
   });
 
   ipcMain.handle('admin-get-config', () => {
-      try {
-          const configData = fs.readFileSync(CONFIG_PATH, 'utf8');
-          const fullConfig = JSON.parse(configData);
-          
-          const { adminPassword, ...configForUI } = fullConfig;
-          
-          return { 
-              success: true, 
-              config: configForUI,
-              configPath: CONFIG_PATH
-          };
-      } catch (error) {
-          console.error('Failed to read config file:', error);
-          return { 
-              success: false, 
-              error: error.message,
-              configPath: CONFIG_PATH
-          };
-      }
+    const { adminPassword, ...safeConfig } = ctx.config || {};
+    return { success: true, config: safeConfig, configPath: CONFIG_PATH };
   });
 
   ipcMain.handle('admin-validate-password', (event, password) => {
@@ -254,17 +239,8 @@ function registerIpcHandlers(ctx) {
               return { success: false, error: 'New password must be at least 4 characters' };
           }
 
-          const currentConfigData = fs.readFileSync(CONFIG_PATH, 'utf8');
-          const currentConfigFromFile = JSON.parse(currentConfigData);
-
           const hashedNewPassword = hashPassword(newPassword);
-          currentConfigFromFile.adminPassword = hashedNewPassword;
-
-          const backupPath = CONFIG_PATH + '.backup';
-          fs.copyFileSync(CONFIG_PATH, backupPath);
-
-          fs.writeFileSync(CONFIG_PATH, JSON.stringify(currentConfigFromFile, null, 4));
-
+          updateAdminPassword(hashedNewPassword);
           ctx.config.adminPassword = hashedNewPassword;
 
           console.log('Admin password changed successfully');
@@ -272,56 +248,6 @@ function registerIpcHandlers(ctx) {
       } catch (error) {
           console.error('Failed to change admin password:', error);
           return { success: false, error: error.message };
-      }
-  });
-
-  ipcMain.handle('admin-save-config', (event, newConfig) => {
-      try {
-          const requiredFields = ['spaceId', 'locationId', 'apiBaseUrl', 'shellyIP'];
-          for (const field of requiredFields) {
-              if (!newConfig[field] || typeof newConfig[field] !== 'string' || newConfig[field].trim() === '') {
-                  throw new Error(`Required field '${field}' is missing or empty`);
-              }
-          }
-
-          try {
-              new URL(newConfig.apiBaseUrl);
-          } catch {
-              throw new Error('apiBaseUrl must be a valid URL');
-          }
-
-          const ipRegex = /^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/;
-          if (!ipRegex.test(newConfig.shellyIP.trim())) {
-              throw new Error('shellyIP must be a valid IP address');
-          }
-
-          const currentConfigData = fs.readFileSync(CONFIG_PATH, 'utf8');
-          const currentConfig = JSON.parse(currentConfigData);
-          
-          const finalConfig = {
-              ...newConfig,
-              adminPassword: currentConfig.adminPassword
-          };
-
-          const backupPath = CONFIG_PATH + '.backup';
-          fs.copyFileSync(CONFIG_PATH, backupPath);
-
-          fs.writeFileSync(CONFIG_PATH, JSON.stringify(finalConfig, null, 4));
-
-          ctx.config = finalConfig;
-
-          console.log('Config file updated successfully');
-          return { 
-              success: true, 
-              message: 'Configuration saved successfully. Restart the application for all changes to take effect.',
-              requiresRestart: true
-          };
-      } catch (error) {
-          console.error('Failed to save config file:', error);
-          return { 
-              success: false, 
-              error: error.message 
-          };
       }
   });
 

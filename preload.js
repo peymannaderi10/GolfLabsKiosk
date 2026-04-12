@@ -35,7 +35,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
   adminClose: () => ipcRenderer.invoke('admin-close'),
   getDisplayInfo: () => ipcRenderer.invoke('get-display-info'),
   adminGetConfig: () => ipcRenderer.invoke('admin-get-config'),
-  adminSaveConfig: (config) => ipcRenderer.invoke('admin-save-config', config),
   adminValidatePassword: (password) => ipcRenderer.invoke('admin-validate-password', password),
   adminChangePassword: (currentPassword, newPassword) => ipcRenderer.invoke('admin-change-password', { currentPassword, newPassword }),
   adminTestProjector: () => ipcRenderer.invoke('admin-test-projector'),
@@ -75,4 +74,4 @@ contextBridge.exposeInMainWorld('electronAPI', {
   onLeagueScoreUpdate: (callback) => onSafe('league-score-update', (_event, payload) => callback(payload)),
   onLeagueStandingsUpdate: (callback) => onSafe('league-standings-update', (_event, payload) => callback(payload)),
   onLeagueModeChanged: (callback) => onSafe('league-mode-changed', (_event, payload) => callback(payload)),
-}); 
+});

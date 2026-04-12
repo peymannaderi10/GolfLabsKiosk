@@ -589,9 +589,13 @@ unlockScreen.style.display = 'none';
 
 async function initialize() {
     console.log("Initializing renderer...");
-    
+
     config = await window.electronAPI.getConfig();
     console.log('Config loaded:', config);
+
+    // Branding is applied by js/branding.js which is loaded before this
+    // script in index.html. It runs on DOMContentLoaded and derives the
+    // full --brand-primary* palette from location_settings.brand_primary_color.
     
     // Get the initial manual unlock state from the main process
     const unlockState = await window.electronAPI.getManualUnlockState();

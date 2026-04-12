@@ -42,7 +42,9 @@
       "admin.html",
       "admin.js",
       "admin.css",
-      "config.example.json",
+      "setup.html",
+      "setup.js",
+      "setup.css",
       "assets/**/*"
     ],
     "extraFiles": [

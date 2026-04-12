@@ -4,6 +4,17 @@
     <meta charset="UTF-8">
     <title>League Leaderboard</title>
     <style>
+        /* Brand variable fallbacks. js/branding.js overrides these on
+           DOMContentLoaded via inline :root styles; the defaults here
+           ensure the leaderboard still renders in GolfLabs green if
+           the branding script fails to load or the config is missing
+           a brand color. */
+        :root {
+            --primary: 158 100% 33%;
+            --brand-primary: #00A36C;
+            --brand-primary-hover: #008B5A;
+        }
+
         * {
             margin: 0;
             padding: 0;
@@ -32,7 +43,7 @@
             align-items: center;
             margin-bottom: 32px;
             padding-bottom: 24px;
-            border-bottom: 2px solid rgba(0, 163, 108, 0.3);
+            border-bottom: 2px solid hsl(var(--primary) / 0.3);
         }
 
         .lb-title {
@@ -49,12 +60,12 @@
         }
 
         .lb-week-badge {
-            background: linear-gradient(135deg, #00A36C, #008855);
+            background: linear-gradient(135deg, var(--brand-primary), var(--brand-primary-hover));
             padding: 12px 28px;
             border-radius: 12px;
             font-size: 20px;
             font-weight: 700;
-            box-shadow: 0 4px 20px rgba(0, 163, 108, 0.3);
+            box-shadow: 0 4px 20px hsl(var(--primary) / 0.3);
         }
 
         .lb-live-dot {
@@ -111,7 +122,7 @@
         }
 
         .lb-row.updated {
-            background: rgba(0, 163, 108, 0.15);
+            background: hsl(var(--primary) / 0.15);
             transform: scale(1.01);
         }
 
@@ -130,7 +141,7 @@
         .lb-col-rank {
             font-size: 24px;
             font-weight: 800;
-            color: #00A36C;
+            color: var(--brand-primary);
             text-align: center;
         }
 
@@ -239,6 +250,7 @@
         </div>
     </div>
 
+    <script src="js/branding.js"></script>
     <script src="leaderboard.js"></script>
 </body>
 </html>

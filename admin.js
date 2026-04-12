@@ -35,12 +35,23 @@ function adminConfirm(message) {
 }
 
 /**
- * Show a status message in the System page hardware section.
+ * Show a status message in the Hardware page's shared message area.
  * Used in place of alert() for monitor/websocket operation results.
  */
 function showHardwareMessage(message, type) {
-    // Re-use projector message area which is always present on the hardware page
-    showProjectorMessage(message, type || 'success');
+    const messageDiv = document.getElementById('hardware-message');
+    if (!messageDiv) {
+        console.log(`[hardware] ${type || 'info'}: ${message}`);
+        return;
+    }
+    messageDiv.className = type === 'error' ? 'error-message' : 'success-message';
+    messageDiv.innerHTML = message;
+    if (type === 'success') {
+        setTimeout(() => {
+            messageDiv.innerHTML = '';
+            messageDiv.className = '';
+        }, 5000);
+    }
 }
 
 // Navigation function — sidebar-based
@@ -69,7 +80,6 @@ function navigateTo(pageId) {
         loadBookingInfo();
     } else if (pageId === 'hardware') {
         loadDisplayInfo();
-        if (currentConfig) populateProjectorSettings(currentConfig);
     } else if (pageId === 'settings') {
         loadConfig();
     } else if (pageId === 'system') {
@@ -226,7 +236,6 @@ async function loadConfig() {
         if (result.success) {
             currentConfig = result.config;
             populateConfigForm(result.config);
-            populateProjectorSettings(result.config);
         } else {
             showConfigMessage(`Failed to load config: ${result.error}`, 'error');
         }
@@ -237,145 +246,45 @@ async function loadConfig() {
 }
 
 function populateConfigForm(config) {
+    // Only the two identity fields remain in the admin UI after the
+    // server-driven refactor. Everything else (door lock, projector,
+    // extensions, league, API URL, API key) is managed from the Golf
+    // Labs dashboard and shipped to the kiosk over the socket.
     document.getElementById('spaceId').value = config.spaceId || '';
     document.getElementById('locationId').value = config.locationId || '';
-    document.getElementById('apiBaseUrl').value = config.apiBaseUrl || '';
-    document.getElementById('kioskApiKey').value = config.kioskApiKey || '';
-    document.getElementById('shellyIP').value = config.shellyIP || '';
-    document.getElementById('timezone').value = config.timezone || '';
-
-    // Extension settings
-    const ext = config.extensionSettings || { enabled: true, triggerMinutes: 5, options: [15, 30, 45, 60] };
-    document.getElementById('extensionEnabled').checked = ext.enabled !== false;
-    document.getElementById('extensionTriggerMinutes').value = ext.triggerMinutes || 5;
-    document.getElementById('extensionOpt15').checked = (ext.options || []).includes(15);
-    document.getElementById('extensionOpt30').checked = (ext.options || []).includes(30);
-    document.getElementById('extensionOpt45').checked = (ext.options || []).includes(45);
-    document.getElementById('extensionOpt60').checked = (ext.options || []).includes(60);
-
-    // League mode settings
-    const league = config.leagueSettings || { enabled: false, leagueId: '' };
-    document.getElementById('leagueModeEnabled').checked = league.enabled === true;
-    document.getElementById('leagueId').value = league.leagueId || '';
-
 }
 
-function populateProjectorSettings(config) {
-    const proj = config.projectorSettings || { enabled: false, comPort: '', baudRate: 115200, powerOnCmd: '\\r*pow=on#\\r', powerOffCmd: '\\r*pow=off#\\r', preStartMinutes: 5, keepAliveGapMinutes: 60 };
-    const appMgr = config.appManagerSettings || { enabled: true };
-    const isAutoOn = proj.enabled || appMgr.enabled !== false;
+// populateProjectorSettings removed — projector config is server-managed
+// from the Golf Labs dashboard now. The Auto On/Off card was removed
+// from admin.html in the same pass. Any stale caller is harmless.
+function populateProjectorSettings() {}
 
-    document.getElementById('autoOnOff-switch').checked = isAutoOn;
-    document.getElementById('projector-settings-panel').style.display = isAutoOn ? 'block' : 'none';
-    const saveFooter = document.getElementById('projector-save-footer');
-    if (saveFooter) saveFooter.style.display = isAutoOn ? 'flex' : 'none';
+// Config save/edit removed in the server-driven refactor. All operational
+// settings live in the Golf Labs dashboard now. Stubbed so any leftover
+// button wiring doesn't throw.
+function toggleConfigEdit() {}
+async function saveConfig() {}
 
-    document.getElementById('projectorComPort').value = proj.comPort || '';
-    document.getElementById('projectorBaudRate').value = String(proj.baudRate || 115200);
-    document.getElementById('projectorPowerOnCmd').value = proj.powerOnCmd || '\\r*pow=on#\\r';
-    document.getElementById('projectorPowerOffCmd').value = proj.powerOffCmd || '\\r*pow=off#\\r';
-    document.getElementById('projectorPreStartMinutes').value = proj.preStartMinutes || 5;
-    document.getElementById('projectorKeepAliveGap').value = proj.keepAliveGapMinutes || 60;
-}
-
-function toggleConfigEdit() {
-    const inputs = document.querySelectorAll('#config-form input, #config-form select');
-    const toggleBtn = document.getElementById('config-toggle-btn');
-    const btnIcon = document.getElementById('config-btn-icon');
-    const btnText = document.getElementById('config-btn-text');
-
-    if (isEditMode) {
-        saveConfig();
-    } else {
-        isEditMode = true;
-        inputs.forEach(input => input.disabled = false);
-        
-        toggleBtn.className = 'btn btn-primary btn-block';
-        toggleBtn.style.marginTop = '20px';
-        toggleBtn.style.padding = '16px';
-        toggleBtn.style.background = 'linear-gradient(135deg, #F59E0B, #D97706)';
-        btnIcon.innerHTML = '<path d="M15,9H5V5H15M12,19A3,3 0 0,1 9,16A3,3 0 0,1 12,13A3,3 0 0,1 15,16A3,3 0 0,1 12,19M17,3H5C3.89,3 3,3.9 3,5V19A2,2 0 0,0 5,21H19A2,2 0 0,0 21,19V7L17,3Z"/>';
-        btnText.textContent = 'Save Config';
-        
-        clearConfigMessage();
-    }
-}
-
-async function saveConfig() {
-    try {
-        // Build extension options array from checkboxes
-        const extOptions = [];
-        if (document.getElementById('extensionOpt15').checked) extOptions.push(15);
-        if (document.getElementById('extensionOpt30').checked) extOptions.push(30);
-        if (document.getElementById('extensionOpt45').checked) extOptions.push(45);
-        if (document.getElementById('extensionOpt60').checked) extOptions.push(60);
-
-        const newConfig = {
-            spaceId: document.getElementById('spaceId').value.trim(),
-            locationId: document.getElementById('locationId').value.trim(),
-            apiBaseUrl: document.getElementById('apiBaseUrl').value.trim(),
-            kioskApiKey: document.getElementById('kioskApiKey').value.trim(),
-            shellyIP: document.getElementById('shellyIP').value.trim(),
-            timezone: document.getElementById('timezone').value.trim(),
-            extensionSettings: {
-                enabled: document.getElementById('extensionEnabled').checked,
-                triggerMinutes: parseInt(document.getElementById('extensionTriggerMinutes').value) || 5,
-                options: extOptions
-            },
-            leagueSettings: {
-                enabled: document.getElementById('leagueModeEnabled').checked,
-                leagueId: document.getElementById('leagueId').value.trim()
-            },
-            // Preserve existing projector/app manager settings from current config
-            projectorSettings: currentConfig.projectorSettings || { enabled: false, comPort: '', baudRate: 115200, powerOnCmd: '\\r*pow=on#\\r', powerOffCmd: '\\r*pow=off#\\r', preStartMinutes: 5, keepAliveGapMinutes: 60 },
-            appManagerSettings: currentConfig.appManagerSettings || { enabled: true }
-        };
-
-        const result = await window.electronAPI.adminSaveConfig(newConfig);
-        
-        if (result.success) {
-            currentConfig = newConfig;
-            
-            isEditMode = false;
-            const inputs = document.querySelectorAll('#config-form input, #config-form select');
-            inputs.forEach(input => input.disabled = true);
-            
-            const toggleBtn = document.getElementById('config-toggle-btn');
-            const btnIcon = document.getElementById('config-btn-icon');
-            const btnText = document.getElementById('config-btn-text');
-            
-            toggleBtn.className = 'btn btn-primary btn-block';
-            toggleBtn.style.marginTop = '20px';
-            toggleBtn.style.padding = '16px';
-            toggleBtn.style.background = '';
-            btnIcon.innerHTML = '<path d="M20.71,7.04C21.1,6.65 21.1,6 20.71,5.63L18.37,3.29C18,2.9 17.35,2.9 16.96,3.29L15.12,5.12L18.87,8.87M3,17.25V21H6.75L17.81,9.93L14.06,6.18L3,17.25Z"/>';
-            btnText.textContent = 'Edit Config';
-            
-            showConfigMessage(`✅ ${result.message}${result.requiresRestart ? '\n⚠️ Application restart required for full effect.' : ''}`, 'success');
-            
-        } else {
-            showConfigMessage(`❌ Failed to save config: ${result.error}`, 'error');
-        }
-    } catch (error) {
-        console.error('Save config failed:', error);
-        showConfigMessage(`❌ Error saving configuration: ${error.message}`, 'error');
-    }
-}
-
+// Config message surface was removed with the Settings page trim in
+// the server-driven refactor. loadConfig() still calls showConfigMessage
+// on error paths, so we keep the functions with null guards — any leftover
+// call safely no-ops instead of throwing `Cannot set properties of null`.
 function showConfigMessage(message, type) {
     const messageDiv = document.getElementById('config-message');
+    if (!messageDiv) {
+        if (type === 'error') console.error(`[config] ${message}`);
+        return;
+    }
     messageDiv.className = type === 'error' ? 'error-message' : 'success-message';
     messageDiv.innerHTML = message.replace(/\n/g, '<br>');
-    
     if (type === 'success') {
-        setTimeout(() => {
-            clearConfigMessage();
-        }, 5000);
+        setTimeout(() => { clearConfigMessage(); }, 5000);
     }
 }
 
 function clearConfigMessage() {
     const messageDiv = document.getElementById('config-message');
+    if (!messageDiv) return;
     messageDiv.innerHTML = '';
     messageDiv.className = '';
 }
@@ -738,96 +647,13 @@ manualUnlockSwitch.addEventListener('change', (event) => {
 });
 
 // --- Projector / Auto On/Off ---
+// All of these were the old local-config write path. The UI card was
+// removed from admin.html as part of the server-driven refactor.
+// Stubs are kept only to satisfy any lingering onclick references.
+function toggleAutoOnOff() {}
+async function saveAutoOnOffState() {}
+async function saveProjectorSettings() {}
 
-function toggleAutoOnOff() {
-    const isEnabled = document.getElementById('autoOnOff-switch').checked;
-    document.getElementById('projector-settings-panel').style.display = isEnabled ? 'block' : 'none';
-    const saveFooter = document.getElementById('projector-save-footer');
-    if (saveFooter) saveFooter.style.display = isEnabled ? 'flex' : 'none';
-
-    if (!isEnabled) {
-        // Save immediately when toggling off
-        saveAutoOnOffState(false);
-    }
-}
-
-async function saveAutoOnOffState(enabled) {
-    try {
-        const newConfig = {
-            ...currentConfig,
-            projectorSettings: {
-                ...(currentConfig.projectorSettings || {}),
-                enabled: enabled
-            },
-            appManagerSettings: {
-                enabled: enabled
-            }
-        };
-
-        const result = await window.electronAPI.adminSaveConfig(newConfig);
-        if (result.success) {
-            currentConfig = newConfig;
-            showProjectorMessage(enabled ? '✅ Auto On/Off enabled' : '✅ Auto On/Off disabled', 'success');
-        } else {
-            showProjectorMessage(`❌ Failed to save: ${result.error}`, 'error');
-        }
-    } catch (error) {
-        showProjectorMessage(`❌ Error: ${error.message}`, 'error');
-    }
-}
-
-async function saveProjectorSettings() {
-    try {
-        const newConfig = {
-            ...currentConfig,
-            projectorSettings: {
-                enabled: true,
-                comPort: document.getElementById('projectorComPort').value.trim(),
-                baudRate: parseInt(document.getElementById('projectorBaudRate').value) || 115200,
-                powerOnCmd: document.getElementById('projectorPowerOnCmd').value.trim(),
-                powerOffCmd: document.getElementById('projectorPowerOffCmd').value.trim(),
-                preStartMinutes: parseInt(document.getElementById('projectorPreStartMinutes').value) || 5,
-                keepAliveGapMinutes: parseInt(document.getElementById('projectorKeepAliveGap').value) || 60
-            },
-            appManagerSettings: {
-                enabled: true
-            }
-        };
-
-        const result = await window.electronAPI.adminSaveConfig(newConfig);
-        if (result.success) {
-            currentConfig = newConfig;
-            showProjectorMessage(`✅ ${result.message}${result.requiresRestart ? ' Restart required.' : ''}`, 'success');
-        } else {
-            showProjectorMessage(`❌ Failed to save: ${result.error}`, 'error');
-        }
-    } catch (error) {
-        showProjectorMessage(`❌ Error: ${error.message}`, 'error');
-    }
-}
-
-async function testProjectorConnection() {
-    try {
-        const result = await window.electronAPI.adminTestProjector();
-        if (result.success) {
-            showProjectorMessage(result.message, 'success');
-        } else {
-            showProjectorMessage(result.error, 'error');
-        }
-    } catch (error) {
-        showProjectorMessage(`Error: ${error.message}`, 'error');
-    }
-}
-
-function showProjectorMessage(message, type) {
-    const messageDiv = document.getElementById('projector-settings-message');
-    if (!messageDiv) return;
-    messageDiv.className = type === 'error' ? 'error-message' : 'success-message';
-    messageDiv.innerHTML = message;
-    if (type === 'success') {
-        setTimeout(() => {
-            messageDiv.innerHTML = '';
-            messageDiv.className = '';
-        }, 5000);
-    }
-}
+// testProjectorConnection + showProjectorMessage removed with the
+// projector UI card. The main.js projector subsystem still exists
+// and continues to use settings pushed from the dashboard.

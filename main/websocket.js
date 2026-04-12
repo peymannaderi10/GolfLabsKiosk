@@ -1,7 +1,11 @@
 const { io } = require('socket.io-client');
 const axios = require('axios');
+const { app } = require('electron');
 const { scheduleFromBookings } = require('./projector');
 const { onSessionEnd } = require('./app-manager');
+const { SOCKET_URL, KIOSK_API_KEY } = require('./constants');
+const { kioskSettingsService } = require('./kiosk-settings');
+const { loadInstallation } = require('./installation');
 
 /**
  * Fully tear down an existing socket connection — remove all listeners,
@@ -25,17 +29,20 @@ function connectToWebSocket(ctx) {
   // Always clean up any existing socket before creating a new one
   disconnectWebSocket(ctx);
 
-  const { locationId, spaceId, apiBaseUrl, kioskApiKey } = ctx.config;
-  const apiHeaders = { 'X-Kiosk-Key': kioskApiKey || '' };
-  console.log(`Connecting to WebSocket server at ${apiBaseUrl}`);
+  const { locationId, spaceId } = ctx.config;
+  // API base URL and kiosk key are now build-time constants — never
+  // read from ctx.config so a rogue settings broadcast can't redirect
+  // us to another server.
+  const apiHeaders = { 'X-Kiosk-Key': KIOSK_API_KEY };
+  console.log(`Connecting to WebSocket server at ${SOCKET_URL}`);
 
-  ctx.socket = io(apiBaseUrl, {
+  ctx.socket = io(SOCKET_URL, {
     reconnection: true,
     reconnectionAttempts: Infinity,
     reconnectionDelay: 1000,
     reconnectionDelayMax: 5000,
     transports: ['websocket'],
-    auth: { kioskKey: kioskApiKey || '' },
+    auth: { kioskKey: KIOSK_API_KEY },
   });
 
   ctx.socket.on('connect', () => {
@@ -132,6 +139,35 @@ function connectToWebSocket(ctx) {
         window.webContents.send('league-standings-update', payload);
       }
     });
+  });
+
+  // ---------------------------------------------------------------------
+  // Server-driven kiosk settings (Phase 3). The dashboard PATCHes via
+  // /kiosk/by-space/:spaceId which broadcasts the full settings payload
+  // to this room. Delegates to the settings service, which rebuilds
+  // ctx.config in place and emits granular change events that main.js
+  // wires to the appropriate subsystem reinitializers.
+  // ---------------------------------------------------------------------
+  ctx.socket.on('kiosk_settings_updated', (settings) => {
+    console.log('Received kiosk_settings_updated');
+    if (!settings || settings.spaceId !== ctx.config.spaceId) {
+      console.log('kiosk_settings_updated is for a different space — ignoring');
+      return;
+    }
+    const installation = loadInstallation();
+    if (!installation) return;
+    kioskSettingsService.applySocketUpdate(settings, ctx, installation);
+  });
+
+  ctx.socket.on('kiosk_restart', (payload) => {
+    console.log('Received kiosk_restart:', payload);
+    if (payload && payload.spaceId && payload.spaceId !== ctx.config.spaceId) {
+      console.log('kiosk_restart is for a different space — ignoring');
+      return;
+    }
+    // Watchdog (VBS + PowerShell) will relaunch us within a few seconds.
+    console.log(`Quitting for restart (reason: ${payload?.reason ?? 'unspecified'})`);
+    setTimeout(() => app.quit(), 500);
   });
 
   ctx.socket.on('league_mode_changed', (payload) => {

@@ -10,6 +10,10 @@
 # A `config.example.json` should be used as a template.
 /config.json
 
+# Build-time secrets. Copy main/secrets.example.js → main/secrets.js,
+# paste the real kiosk API key, and never commit the real file.
+/main/secrets.js
+
 # Build output
 /dist
 /out

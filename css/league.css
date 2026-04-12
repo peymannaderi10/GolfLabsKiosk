@@ -8,7 +8,7 @@
 
 /* Small "Enter Score" button (sits to the left of the timer in #top-right-bar) */
 #league-bookmark {
-    background: linear-gradient(135deg, #00A36C, #008855);
+    background: linear-gradient(135deg, var(--brand-primary), var(--brand-primary-hover));
     border-radius: 8px;
     padding: 6px 12px;
     display: flex;
@@ -16,12 +16,12 @@
     align-items: center;
     gap: 5px;
     cursor: pointer;
-    box-shadow: 0 4px 12px rgba(0, 163, 108, 0.3);
+    box-shadow: 0 4px 12px hsl(var(--primary) / 0.3);
     transition: all 0.2s ease;
 }
 
 #league-bookmark:hover {
-    box-shadow: 0 4px 16px rgba(0, 163, 108, 0.5);
+    box-shadow: 0 4px 16px hsl(var(--primary) / 0.5);
     transform: translateY(-1px);
 }
 
@@ -41,7 +41,7 @@
     max-width: 95vw;
     height: 100vh;
     background: rgba(15, 15, 20, 0.97);
-    border-left: 2px solid #00A36C;
+    border-left: 2px solid var(--brand-primary);
     z-index: 1001;
     display: flex;
     flex-direction: column;
@@ -74,7 +74,7 @@
     overflow-x: auto;
     margin-bottom: 14px;
     scrollbar-width: thin;
-    scrollbar-color: #00A36C rgba(255,255,255,0.06);
+    scrollbar-color: var(--brand-primary) rgba(255,255,255,0.06);
 }
 
 #league-scorecard-wrap::-webkit-scrollbar {
@@ -87,12 +87,12 @@
 }
 
 #league-scorecard-wrap::-webkit-scrollbar-thumb {
-    background: #00A36C;
+    background: var(--brand-primary);
     border-radius: 3px;
 }
 
 #league-scorecard-wrap::-webkit-scrollbar-thumb:hover {
-    background: #008855;
+    background: var(--brand-primary-hover);
 }
 
 #league-scorecard {
@@ -138,18 +138,18 @@
 }
 
 .sc-par-row {
-    border-bottom: 2px solid rgba(0, 163, 108, 0.3);
+    border-bottom: 2px solid hsl(var(--primary) / 0.3);
 }
 
 .sc-par-label {
     text-align: left !important;
-    color: rgba(0, 163, 108, 0.8);
+    color: hsl(var(--primary) / 0.8);
     font-weight: 700;
     font-size: 12px;
 }
 
 .sc-par-cell {
-    color: rgba(0, 163, 108, 0.8);
+    color: hsl(var(--primary) / 0.8);
     font-weight: 600;
 }
 
@@ -185,35 +185,35 @@
 }
 
 .sc-filled.sc-under { color: #60a5fa; }
-.sc-filled.sc-on-par { color: #00A36C; }
+.sc-filled.sc-on-par { color: var(--brand-primary); }
 .sc-filled.sc-over { color: rgba(255,255,255,0.7); }
 
 .sc-current {
     cursor: pointer;
     position: relative;
     border-radius: 6px;
-    border: 2px dashed rgba(0, 163, 108, 0.6);
-    background: rgba(0, 163, 108, 0.08);
-    color: rgba(0, 163, 108, 0.7);
+    border: 2px dashed hsl(var(--primary) / 0.6);
+    background: hsl(var(--primary) / 0.08);
+    color: hsl(var(--primary) / 0.7);
     font-weight: 700;
     transition: background 0.15s;
 }
 
 .sc-current:hover {
-    background: rgba(0, 163, 108, 0.18);
+    background: hsl(var(--primary) / 0.18);
 }
 
 .sc-current.sc-active {
-    border-color: #00A36C;
-    background: rgba(0, 163, 108, 0.2);
-    box-shadow: 0 0 8px rgba(0, 163, 108, 0.3);
+    border-color: var(--brand-primary);
+    background: hsl(var(--primary) / 0.2);
+    box-shadow: 0 0 8px hsl(var(--primary) / 0.3);
 }
 
 .sc-current.sc-pending {
-    color: #00A36C;
+    color: var(--brand-primary);
     border-style: solid;
-    border-color: #00A36C;
-    background: rgba(0, 163, 108, 0.15);
+    border-color: var(--brand-primary);
+    background: hsl(var(--primary) / 0.15);
 }
 
 .sc-future {
@@ -260,20 +260,20 @@
 }
 
 .league-picker-btn:hover {
-    border-color: #00A36C;
-    background: rgba(0, 163, 108, 0.15);
+    border-color: var(--brand-primary);
+    background: hsl(var(--primary) / 0.15);
 }
 
 .league-picker-btn.selected {
-    border-color: #00A36C;
-    background: #00A36C;
+    border-color: var(--brand-primary);
+    background: var(--brand-primary);
     color: white;
-    box-shadow: 0 0 12px rgba(0, 163, 108, 0.4);
+    box-shadow: 0 0 12px hsl(var(--primary) / 0.4);
 }
 
 .league-picker-btn.league-score-par {
-    border-color: rgba(0, 163, 108, 0.6);
-    background: rgba(0, 163, 108, 0.1);
+    border-color: hsl(var(--primary) / 0.6);
+    background: hsl(var(--primary) / 0.1);
 }
 .league-picker-btn.league-score-under {
     border-color: rgba(59, 130, 246, 0.6);
@@ -304,7 +304,7 @@
 .league-submit-btn {
     width: 100%;
     padding: 16px;
-    background: #00A36C;
+    background: var(--brand-primary);
     color: white;
     border: none;
     border-radius: 12px;
@@ -316,7 +316,7 @@
 }
 
 .league-submit-btn:hover {
-    background: #008855;
+    background: var(--brand-primary-hover);
 }
 
 .league-submit-btn:disabled {
@@ -334,7 +334,7 @@
 .league-mini-title {
     font-size: 14px;
     font-weight: 600;
-    color: #00A36C;
+    color: var(--brand-primary);
     text-transform: uppercase;
     letter-spacing: 1px;
     margin-bottom: 12px;
@@ -358,13 +358,13 @@
 }
 
 .league-mini-row.highlight {
-    background: rgba(0, 163, 108, 0.15);
-    border: 1px solid rgba(0, 163, 108, 0.3);
+    background: hsl(var(--primary) / 0.15);
+    border: 1px solid hsl(var(--primary) / 0.3);
 }
 
 .league-mini-rank {
     font-weight: 700;
-    color: #00A36C;
+    color: var(--brand-primary);
     width: 24px;
 }
 
@@ -402,13 +402,13 @@
 }
 
 .league-toast-content {
-    background: #00A36C;
+    background: var(--brand-primary);
     color: white;
     padding: 16px 32px;
     border-radius: 12px;
     font-size: 20px;
     font-weight: 700;
-    box-shadow: 0 8px 30px rgba(0, 163, 108, 0.4);
+    box-shadow: 0 8px 30px hsl(var(--primary) / 0.4);
 }
 
 /* Round Summary */
@@ -427,18 +427,18 @@
 
 .league-summary-card {
     background: rgba(20, 20, 25, 0.98);
-    border: 2px solid #00A36C;
+    border: 2px solid var(--brand-primary);
     border-radius: 20px;
     padding: 48px;
     text-align: center;
-    box-shadow: 0 0 60px rgba(0, 163, 108, 0.3);
+    box-shadow: 0 0 60px hsl(var(--primary) / 0.3);
     min-width: 400px;
 }
 
 .league-summary-title {
     font-size: 36px;
     font-weight: 800;
-    color: #00A36C;
+    color: var(--brand-primary);
     margin-bottom: 32px;
 }
 
@@ -472,7 +472,7 @@
 
 .league-summary-close {
     padding: 14px 48px;
-    background: #00A36C;
+    background: var(--brand-primary);
     color: white;
     border: none;
     border-radius: 12px;
@@ -483,7 +483,7 @@
 }
 
 .league-summary-close:hover {
-    background: #008855;
+    background: var(--brand-primary-hover);
 }
 
 /* =====================================================
@@ -553,8 +553,8 @@
     align-items: center;
     gap: 8px;
     padding: 8px 12px 8px 16px;
-    background: rgba(0, 163, 108, 0.12);
-    border: 1px solid rgba(0, 163, 108, 0.25);
+    background: hsl(var(--primary) / 0.12);
+    border: 1px solid hsl(var(--primary) / 0.25);
     border-radius: 24px;
     color: #00D68F;
     font-size: 14px;
@@ -605,8 +605,8 @@
 }
 
 #league-player-search:focus {
-    border-color: #00A36C;
-    background: rgba(0, 163, 108, 0.05);
+    border-color: var(--brand-primary);
+    background: hsl(var(--primary) / 0.05);
 }
 
 /* Player List */
@@ -629,11 +629,11 @@
 }
 
 .league-player-item:hover {
-    background: rgba(0, 163, 108, 0.1);
+    background: hsl(var(--primary) / 0.1);
 }
 
 .league-player-item:active {
-    background: rgba(0, 163, 108, 0.18);
+    background: hsl(var(--primary) / 0.18);
     transform: scale(0.99);
 }
 
@@ -666,7 +666,7 @@
 .league-picker-start-btn {
     width: 100%;
     padding: 16px;
-    background: linear-gradient(135deg, #00A36C, #008855);
+    background: linear-gradient(135deg, var(--brand-primary), var(--brand-primary-hover));
     border: none;
     border-radius: 12px;
     color: #fff;

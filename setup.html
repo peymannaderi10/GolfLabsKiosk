@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Kiosk Setup</title>
+  <link rel="stylesheet" href="setup.css">
+</head>
+<body>
+  <main class="setup">
+    <header class="setup-header">
+      <h1 id="setup-title">Kiosk Setup</h1>
+      <p id="setup-subtitle" class="subtitle">Register this kiosk to a location and space.</p>
+    </header>
+
+    <!-- Step 1: Location ID -->
+    <section id="step-location" class="step active">
+      <label for="location-input" class="label">Location ID</label>
+      <input
+        id="location-input"
+        type="text"
+        placeholder="Paste your location UUID"
+        autocomplete="off"
+        spellcheck="false"
+      />
+      <p class="help">Find this in your Golf Labs dashboard under Manage Spaces.</p>
+      <div class="actions">
+        <button id="location-continue" class="btn-primary" type="button">Continue</button>
+      </div>
+      <p id="location-error" class="error" hidden></p>
+    </section>
+
+    <!-- Step 2: Pick a space -->
+    <section id="step-space" class="step">
+      <label class="label">Choose this kiosk's space</label>
+      <div id="space-list" class="space-list"></div>
+      <p id="space-empty" class="help" hidden>
+        No unclaimed spaces at this location. Ask the admin to clear an existing kiosk assignment, then press Refresh.
+      </p>
+      <div class="actions">
+        <button id="back-to-location" class="btn-neutral" type="button">Back</button>
+        <button id="refresh-spaces" class="btn-neutral" type="button">Refresh</button>
+      </div>
+      <p id="space-error" class="error" hidden></p>
+    </section>
+
+    <!-- Step 3: Registering -->
+    <section id="step-registering" class="step">
+      <div class="spinner"></div>
+      <p class="help">Registering this kiosk…</p>
+    </section>
+  </main>
+
+  <script src="setup.js"></script>
+</body>
+</html>

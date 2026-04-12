@@ -1,0 +1,193 @@
+/* Setup wizard uses strict neutral colors by default. After the
+   operator enters a location ID and we fetch its branding, the
+   --brand-primary CSS variable is updated and only the space-card
+   HOVER state + continue button use it — the chrome stays neutral
+   so operators at any location see a consistent white/black/gray
+   shell. The Back/Refresh buttons remain neutral even after branding. */
+:root {
+  --brand-primary: #0f172a;          /* slate-900, neutral until branded */
+  --brand-primary-hover: #1e293b;    /* slate-800 */
+  --brand-primary-soft: rgba(15, 23, 42, 0.06);
+  --bg: #f8fafc;
+  --card: #ffffff;
+  --border: #e2e8f0;
+  --text: #0f172a;
+  --text-muted: #64748b;
+  --error: #dc2626;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem;
+}
+
+.setup {
+  width: 100%;
+  max-width: 520px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 2.5rem;
+  box-shadow: 0 4px 24px rgba(15, 23, 42, 0.04);
+}
+
+.setup-header {
+  text-align: center;
+  margin-bottom: 2rem;
+}
+
+.setup-header h1 {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--text);
+  margin-bottom: 0.5rem;
+}
+
+.subtitle {
+  font-size: 0.875rem;
+  color: var(--text-muted);
+}
+
+.step { display: none; }
+.step.active { display: block; }
+
+.label {
+  display: block;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--text);
+  margin-bottom: 0.5rem;
+}
+
+input[type="text"] {
+  width: 100%;
+  padding: 0.75rem 1rem;
+  font-size: 0.95rem;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--bg);
+  color: var(--text);
+  font-family: ui-monospace, 'SF Mono', Menlo, monospace;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+input[type="text"]:focus {
+  outline: none;
+  border-color: #334155;        /* slate-700, neutral */
+  box-shadow: 0 0 0 3px rgba(15, 23, 42, 0.08);
+}
+
+.help {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  margin-top: 0.5rem;
+}
+
+.error {
+  font-size: 0.8rem;
+  color: var(--error);
+  margin-top: 0.75rem;
+}
+
+.actions {
+  display: flex;
+  gap: 0.5rem;
+  justify-content: flex-end;
+  margin-top: 1.5rem;
+}
+
+button {
+  padding: 0.625rem 1.25rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  border-radius: 10px;
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition: background-color 0.15s, border-color 0.15s, color 0.15s;
+  font-family: inherit;
+}
+
+/* Primary button — stays neutral slate-900 on the initial location-id
+   screen. Once branding is applied, the CSS var flips to the location
+   color for visual continuity with the dashboard. */
+.btn-primary {
+  background: var(--brand-primary);
+  color: white;
+}
+.btn-primary:hover { background: var(--brand-primary-hover); }
+.btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* Neutral button — always slate, never adopts branding. Used for
+   Back and Refresh so the operator's "escape hatch" controls don't
+   blend into the branded space cards. */
+.btn-neutral {
+  background: transparent;
+  color: var(--text-muted);
+  border-color: var(--border);
+}
+.btn-neutral:hover {
+  background: var(--bg);
+  color: var(--text);
+}
+
+.space-list {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+  margin-top: 0.5rem;
+}
+
+.space-card {
+  padding: 1rem;
+  border: 2px solid var(--border);
+  border-radius: 12px;
+  background: var(--card);
+  cursor: pointer;
+  text-align: left;
+  font-family: inherit;
+  transition: border-color 0.15s, background-color 0.15s;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+/* Space card hover is the ONE place that uses the location's brand
+   color — everything else stays neutral. */
+.space-card:hover {
+  border-color: var(--brand-primary);
+  background: var(--brand-primary-soft);
+}
+.space-card .number {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  font-weight: 500;
+}
+.space-card .name {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text);
+}
+
+#step-registering {
+  text-align: center;
+  padding: 3rem 1rem;
+}
+
+.spinner {
+  width: 40px;
+  height: 40px;
+  margin: 0 auto 1rem;
+  border: 3px solid var(--border);
+  border-top-color: #334155;      /* neutral slate-700 */
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}

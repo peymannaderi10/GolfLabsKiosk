@@ -388,8 +388,21 @@ function destroyProjector() {
   }
 }
 
+/**
+ * Re-initialize the projector subsystem after a server-pushed settings
+ * change. Tears down the current serial port and schedule, then runs
+ * the normal init() path against the updated ctx.config.projectorSettings.
+ * Exposed so main.js can wire it to the kiosk-settings change event.
+ */
+function reinitProjector(ctx) {
+  console.log('[Projector] Reinitializing after settings change');
+  destroyProjector();
+  initProjector(ctx);
+}
+
 module.exports = {
   initProjector,
+  reinitProjector,
   destroyProjector,
   scheduleFromBookings,
   powerOn,

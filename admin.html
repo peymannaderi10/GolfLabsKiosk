@@ -160,8 +160,10 @@
             <section class="page" id="hardware-page">
                 <div class="page-header">
                     <h1 class="page-title">Hardware</h1>
-                    <p class="page-description">Display management, projector control, and connections.</p>
+                    <p class="page-description">Display management and connections.</p>
                 </div>
+
+                <div id="hardware-message"></div>
 
                 <div class="bento-grid">
                     <div class="glass-card">
@@ -189,72 +191,6 @@
                         </div>
                     </div>
 
-                    <div class="glass-card span-full">
-                        <div class="card-inner">
-                            <div class="card-head"><div class="card-title">Auto On/Off</div></div>
-                            <div class="card-body-fill">
-                                <div class="toggle-row">
-                                    <div class="toggle-row-label">
-                                        <span>Enable Auto On/Off</span>
-                                        <small>Powers projector before bookings, closes simulator apps on session end.</small>
-                                    </div>
-                                    <label class="switch">
-                                        <input type="checkbox" id="autoOnOff-switch" onchange="toggleAutoOnOff()">
-                                        <span class="slider"></span>
-                                    </label>
-                                </div>
-
-                                <div id="projector-settings-panel" style="display: none;">
-                                    <hr class="section-divider">
-                                    <div id="projector-settings-form" class="config-grid">
-                                        <div class="form-row">
-                                            <div class="form-group">
-                                                <label class="form-label">COM Port</label>
-                                                <input type="text" id="projectorComPort" placeholder="COM3">
-                                            </div>
-                                            <div class="form-group">
-                                                <label class="form-label">Baud Rate</label>
-                                                <select id="projectorBaudRate">
-                                                    <option value="9600">9600</option>
-                                                    <option value="19200">19200</option>
-                                                    <option value="38400">38400</option>
-                                                    <option value="57600">57600</option>
-                                                    <option value="115200" selected>115200</option>
-                                                </select>
-                                            </div>
-                                        </div>
-                                        <div class="form-row">
-                                            <div class="form-group">
-                                                <label class="form-label">Power On Command</label>
-                                                <input type="text" id="projectorPowerOnCmd" placeholder="\r*pow=on#\r">
-                                            </div>
-                                            <div class="form-group">
-                                                <label class="form-label">Power Off Command</label>
-                                                <input type="text" id="projectorPowerOffCmd" placeholder="\r*pow=off#\r">
-                                            </div>
-                                        </div>
-                                        <div class="form-row">
-                                            <div class="form-inline">
-                                                <label class="form-label">Pre-start</label>
-                                                <input type="number" class="input-compact" id="projectorPreStartMinutes" min="1" max="30" value="5">
-                                                <span class="form-unit">min</span>
-                                            </div>
-                                            <div class="form-inline">
-                                                <label class="form-label">Keep-alive</label>
-                                                <input type="number" class="input-compact" id="projectorKeepAliveGap" min="0" max="180" value="60">
-                                                <span class="form-unit">min</span>
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <div id="projector-settings-message"></div>
-                                </div>
-                            </div>
-                            <div class="card-foot" id="projector-save-footer" style="display: none;">
-                                <button class="btn btn-surface" onclick="testProjectorConnection()">Test Connection</button>
-                                <button class="btn btn-primary" onclick="saveProjectorSettings()">Save Settings</button>
-                            </div>
-                        </div>
-                    </div>
                 </div>
             </section>
 
@@ -269,7 +205,9 @@
                     <div class="bento-grid">
                         <div class="glass-card span-full">
                             <div class="card-inner">
-                                <div class="card-head"><div class="card-title">Kiosk Configuration</div></div>
+                                <div class="card-head">
+                                    <div class="card-title">Kiosk Installation</div>
+                                </div>
                                 <div class="card-body-fill">
                                     <div class="config-grid">
                                         <div class="form-row">
@@ -282,88 +220,14 @@
                                                 <input type="text" id="locationId" placeholder="UUID" disabled>
                                             </div>
                                         </div>
-                                        <div class="form-row">
-                                            <div class="form-group">
-                                                <label class="form-label">API Base URL</label>
-                                                <input type="url" id="apiBaseUrl" placeholder="https://api.example.com" disabled>
-                                            </div>
-                                            <div class="form-group">
-                                                <label class="form-label">Kiosk API Key</label>
-                                                <input type="password" id="kioskApiKey" placeholder="API key" disabled>
-                                            </div>
-                                        </div>
-                                        <div class="form-row">
-                                            <div class="form-group">
-                                                <label class="form-label">Shelly IP Address</label>
-                                                <input type="text" id="shellyIP" placeholder="192.168.1.100" disabled>
-                                            </div>
-                                            <div class="form-group">
-                                                <label class="form-label">Timezone</label>
-                                                <input type="text" id="timezone" placeholder="America/New_York" disabled>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="glass-card">
-                            <div class="card-inner">
-                                <div class="card-head"><div class="card-title">Session Extensions</div></div>
-                                <div class="card-body-fill">
-                                    <div class="config-grid">
-                                        <div class="toggle-row">
-                                            <div class="toggle-row-label"><span>Enable Extension Upsell</span></div>
-                                            <input type="checkbox" id="extensionEnabled" disabled>
-                                        </div>
-                                        <div class="form-inline">
-                                            <label class="form-label">Trigger at</label>
-                                            <input type="number" class="input-compact" id="extensionTriggerMinutes" min="1" max="30" value="5" disabled>
-                                            <span class="form-unit">min remaining</span>
-                                        </div>
-                                        <div class="form-group">
-                                            <label class="form-label">Duration options</label>
-                                            <div class="checkbox-row">
-                                                <label class="checkbox-label"><input type="checkbox" id="extensionOpt15" disabled> 15m</label>
-                                                <label class="checkbox-label"><input type="checkbox" id="extensionOpt30" disabled> 30m</label>
-                                                <label class="checkbox-label"><input type="checkbox" id="extensionOpt45" disabled> 45m</label>
-                                                <label class="checkbox-label"><input type="checkbox" id="extensionOpt60" disabled> 60m</label>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="glass-card">
-                            <div class="card-inner">
-                                <div class="card-head"><div class="card-title">League Mode</div></div>
-                                <div class="card-body-fill">
-                                    <div class="config-grid">
-                                        <div class="toggle-row">
-                                            <div class="toggle-row-label">
-                                                <span>Enable League Mode</span>
-                                                <small>Automated scoring for official leagues</small>
-                                            </div>
-                                            <input type="checkbox" id="leagueModeEnabled" disabled>
-                                        </div>
-                                        <div class="form-group">
-                                            <label class="form-label">League ID</label>
-                                            <input type="text" id="leagueId" placeholder="UUID of the active league" disabled>
-                                        </div>
+                                        <p style="font-size: 12px; color: rgba(255,255,255,0.5); margin-top: 12px;">
+                                            All kiosk operational settings (door lock IP, projector control, league mode, session extensions) are now managed from the Golf Labs dashboard. Open Manage Spaces and click the Kiosk icon on this bay to change them.
+                                        </p>
                                     </div>
                                 </div>
                             </div>
                         </div>
                     </div>
-
-                    <button class="btn btn-primary btn-block" id="config-toggle-btn" onclick="toggleConfigEdit()" style="margin-top: 20px; padding: 14px;">
-                        <svg class="icon" viewBox="0 0 24 24" id="config-btn-icon" style="width:16px;height:16px;fill:currentColor;">
-                            <path d="M20.71,7.04C21.1,6.65 21.1,6 20.71,5.63L18.37,3.29C18,2.9 17.35,2.9 16.96,3.29L15.12,5.12L18.87,8.87M3,17.25V21H6.75L17.81,9.93L14.06,6.18L3,17.25Z"/>
-                        </svg>
-                        <span id="config-btn-text">Edit Config</span>
-                    </button>
-                    <div id="config-message"></div>
                 </div>
 
                 <div class="glass-card" style="margin-top: 20px;">
@@ -471,6 +335,7 @@
         </main>
     </div>
 
+    <script src="js/branding.js"></script>
     <script src="admin.js"></script>
 </body>
 </html>

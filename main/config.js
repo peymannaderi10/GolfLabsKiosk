@@ -1,12 +1,16 @@
-const { app, dialog } = require('electron');
-const path = require('path');
-const fs = require('fs');
+/**
+ * Legacy `config.js` — historically owned loading the runtime
+ * config.json. In Phase 3 of the server-driven kiosk refactor, that
+ * responsibility moved to `main/installation.js` (local identity)
+ * and `main/kiosk-settings.js` (server-pushed operational config).
+ *
+ * This file now only owns the in-memory log buffer (used by the
+ * admin panel console viewer) and re-exports CONFIG_PATH for any
+ * caller still referencing it.
+ */
 
-const userDataPath = app.getPath('userData');
-const CONFIG_PATH = path.join(userDataPath, 'config.json');
-const CONFIG_EXAMPLE_PATH = path.join(__dirname, '..', 'config.example.json');
+const { CONFIG_PATH } = require('./installation');
 
-// In-memory log buffer (keep last 500 entries)
 const logBuffer = [];
 const MAX_LOG_ENTRIES = 500;
 
@@ -14,7 +18,7 @@ function addToLogBuffer(level, args) {
   const entry = {
     time: new Date().toISOString(),
     level,
-    message: args.map(a => typeof a === 'object' ? JSON.stringify(a) : String(a)).join(' ')
+    message: args.map(a => (typeof a === 'object' ? JSON.stringify(a) : String(a))).join(' '),
   };
   logBuffer.push(entry);
   if (logBuffer.length > MAX_LOG_ENTRIES) logBuffer.shift();
@@ -28,67 +32,4 @@ console.log = (...args) => { addToLogBuffer('log', args); originalLog(...args); 
 console.error = (...args) => { addToLogBuffer('error', args); originalError(...args); };
 console.warn = (...args) => { addToLogBuffer('warn', args); originalWarn(...args); };
 
-function loadConfig() {
-  try {
-    if (!fs.existsSync(CONFIG_PATH)) {
-      console.log('config.json not found. Attempting to create it from example.');
-      
-      fs.copyFileSync(CONFIG_EXAMPLE_PATH, CONFIG_PATH);
-      
-      dialog.showMessageBoxSync({
-        type: 'info',
-        title: 'Configuration Needed',
-        message: 'A new configuration file has been created for you. Please edit it before restarting the application.',
-        detail: `The file is located at: ${CONFIG_PATH}`
-      });
-      
-      app.quit();
-      return null;
-    }
-
-    const configData = fs.readFileSync(CONFIG_PATH);
-    const config = JSON.parse(configData);
-    
-    if (!config.spaceId || !config.locationId || !config.apiBaseUrl || !config.shellyIP) {
-        throw new Error('One or more required fields are missing from config.json: spaceId, locationId, apiBaseUrl, shellyIP');
-    }
-
-    if (!config.adminPassword) {
-        config.adminPassword = 'admin123';
-        console.log('Admin password not found in config, using default: admin123');
-    }
-
-    if (!config.extensionSettings) {
-        config.extensionSettings = { enabled: true, triggerMinutes: 5, options: [15, 30, 45, 60] };
-        console.log('Extension settings not found in config, using defaults');
-    }
-
-    if (!config.leagueSettings) {
-        config.leagueSettings = { enabled: false, leagueId: '' };
-        console.log('League settings not found in config, using defaults');
-    }
-
-    if (!config.projectorSettings) {
-        config.projectorSettings = { enabled: false, comPort: '', baudRate: 115200, powerOnCmd: '\\r*pow=on#\\r', powerOffCmd: '\\r*pow=off#\\r', preStartMinutes: 5, keepAliveGapMinutes: 60 };
-        console.log('Projector settings not found in config, using defaults');
-    }
-
-    if (!config.appManagerSettings) {
-        config.appManagerSettings = { enabled: true };
-        console.log('App manager settings not found in config, using defaults');
-    }
-
-    return config;
-
-  } catch (error) {
-    console.error('FATAL: config.json is invalid or cannot be accessed.', error);
-    dialog.showErrorBox(
-      'Fatal Configuration Error',
-      `Could not load or create the configuration file. Please check the file at ${CONFIG_PATH}.\n\nError: ${error.message}`
-    );
-    app.quit();
-    return null;
-  }
-}
-
-module.exports = { loadConfig, logBuffer, CONFIG_PATH };
+module.exports = { logBuffer, CONFIG_PATH };
