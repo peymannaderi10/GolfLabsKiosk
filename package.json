@@ -1,6 +1,6 @@
 {
   "name": "golflabskiosk",
-  "version": "1.2.5",
+  "version": "1.2.7",
   "description": "Golf Labs Kiosk Application",
   "main": "main.js",
   "overrides": {
@@ -36,6 +36,7 @@
       "main.js",
       "main/**/*",
       "preload.js",
+      "preload-setup.js",
       "js/**/*",
       "css/**/*",
       "index.html",
